@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -182,7 +182,7 @@ function App() {
             <div className="profile">
               <div className="avatar">AM</div>
               <div>
-                <strong>Ananya Mehta</strong>
+                <strong>Ankush Chauhan</strong>
                 <small>Lead investigator</small>
               </div>
               <ChevronRight size={14} />
@@ -531,7 +531,7 @@ function Overview({
     <>
       <PageTitle
         eyebrow="COMMAND CENTER / 06 SEP 2026"
-        title="Good morning, Ananya."
+        title="Good morning, Ankush."
         copy="Here is the signal across your active investigations."
         action={
           <button className="primary-button" onClick={() => setView("network")}>
@@ -870,7 +870,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
       status: "ready",
       entities: 0,
       relationships: 0,
-      addedBy: "Ananya Mehta",
+      addedBy: "Ankush Chauhan",
     };
     setItems((current) => [resource, ...current]);
     setSelected(resource);
@@ -1527,7 +1527,64 @@ function Timeline() {
   );
 }
 
+type ProofEvent = {
+  eventId: string;
+  sequence: number;
+  eventType: string;
+  inputHashes: string[];
+  outputHash: string;
+  previousOutputHash: string | null;
+  operationVersion: string;
+  previousEventHash: string | null;
+  eventHash: string;
+  createdAt: string;
+};
+
+type ProofRun = {
+  runId: string;
+  caseId: string;
+  status: "VERIFIED" | "INVALID";
+  rootHash: string;
+  pipelineVersion: string;
+  scope: string;
+  storage: string;
+  events: ProofEvent[];
+  verification?: { valid: boolean; invalidEvent: string | null };
+};
+
 function Integrity() {
+  const [proofRun, setProofRun] = useState<ProofRun | null>(null);
+  const [verification, setVerification] = useState<ProofRun["verification"]>();
+  const [proofLoading, setProofLoading] = useState(true);
+
+  async function loadProofRun() {
+    setProofLoading(true);
+    try {
+      const response = await fetch("/api/provenance?caseId=CASE-1004");
+      if (!response.ok) throw new Error("Proof trail unavailable");
+      const data = (await response.json()) as ProofRun;
+      setProofRun(data);
+      setVerification(data.verification);
+    } finally {
+      setProofLoading(false);
+    }
+  }
+
+  async function verifyProof() {
+    if (!proofRun) return;
+    const response = await fetch("/api/provenance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caseId: proofRun.caseId }),
+    });
+    const data = (await response.json()) as { valid: boolean; invalidEvent: string | null };
+    setVerification(data);
+  }
+
+  useEffect(() => {
+    loadProofRun().catch(() => setProofLoading(false));
+  }, []);
+
   return (
     <>
       <PageTitle
@@ -1540,6 +1597,47 @@ function Integrity() {
           </button>
         }
       />
+      <section className="panel proof-panel">
+        <div className="proof-header">
+          <div>
+            <span className="eyebrow">VERIFIABLE COMPUTATION / CASE-1004</span>
+            <h2>Computation proof trail</h2>
+            <p>Each step consumes the previous output and is linked to the previous event by SHA-256 hashes.</p>
+          </div>
+          <span className={`proof-status ${verification?.valid ? "verified" : "pending"}`}>
+            <i /> {proofLoading ? "LOADING" : verification?.valid ? "VERIFIED" : "CHECK REQUIRED"}
+          </span>
+        </div>
+        {proofRun && (
+          <>
+            <div className="proof-summary">
+              <div><small>ROOT HASH</small><strong>{proofRun.rootHash.slice(0, 18)}...</strong></div>
+              <div><small>EVENTS</small><strong>{proofRun.events.length}</strong></div>
+              <div><small>STORAGE</small><strong>{proofRun.storage === "neo4j" ? "Neo4j" : "Local demo"}</strong></div>
+              <button className="secondary-button small" onClick={verifyProof}>Verify trail</button>
+            </div>
+            <div className="proof-events">
+              {proofRun.events.map((event) => (
+                <details className="proof-event" key={event.eventId}>
+                  <summary>
+                    <span className="proof-event-number">{String(event.sequence).padStart(2, "0")}</span>
+                    <span><strong>{event.eventType.replaceAll("_", " ")}</strong><small>{event.eventId}</small></span>
+                    <code>{event.eventHash.slice(0, 12)}...</code>
+                    <ChevronRight size={14} />
+                  </summary>
+                  <div className="proof-event-details">
+                    <span>Input hashes <code>{event.inputHashes.join(" · ")}</code></span>
+                    <span>Output hash <code>{event.outputHash}</code></span>
+                    <span>Previous output hash <code>{event.previousOutputHash || "GENESIS"}</code></span>
+                    <span>Previous event hash <code>{event.previousEventHash || "GENESIS"}</code></span>
+                    <span>Operation <code>{event.operationVersion}</code></span>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
       <div className="integrity-grid">
         <section className="panel ledger-panel">
           <PanelHeading title="Evidence integrity ledger" action="Verify all" />
@@ -1581,7 +1679,7 @@ function Integrity() {
           <div className="current-role">
             <div className="avatar">AM</div>
             <span>
-              <strong>Ananya Mehta</strong>
+              <strong>Ankush Chauhan</strong>
               <small>Lead investigator · MFA verified</small>
             </span>
             <span className="role-badge">INVESTIGATOR</span>
@@ -1616,13 +1714,13 @@ function Integrity() {
             "09:42",
             "Hash verification completed",
             "FIR-1004.pdf · VERIFIED",
-            "Ananya Mehta",
+            "Ankush Chauhan",
           ],
           [
             "09:18",
             "Entity resolution accepted",
             "Raju → P001 · canonical mapping",
-            "Ananya Mehta",
+            "Ankush Chauhan",
           ],
           [
             "Yesterday",
@@ -1647,6 +1745,31 @@ function Integrity() {
             <ChevronRight size={14} />
           </div>
         ))}
+      </section>
+      <section className="panel provenance-note-panel">
+        <div className="provenance-note-icon"><ShieldCheck size={18} /></div>
+        <div>
+          <span className="eyebrow">HOW VERIFICATION WORKS</span>
+          <h2>Every computation step carries its own proof</h2>
+          <p>
+            EvidenceGraph canonicalizes each input and calculates a SHA-256 hash.
+            Every processing event stores its output hash and the hash of the
+            previous event, forming a tamper-evident chain that ends at the root
+            hash shown above.
+          </p>
+          <p>
+            Verification replays the hash calculations and checks the entire
+            chain. This confirms that the declared inputs, processing order and
+            outputs have not changed. It does not establish guilt, validate the
+            truth of source material, or replace independent investigation.
+          </p>
+          <div className="provenance-note-meta">
+            <span><Check size={13} /> Inputs committed</span>
+            <span><Check size={13} /> Previous outputs consumed</span>
+            <span><Check size={13} /> Root independently recalculable</span>
+            <span><CircleAlert size={13} /> Blockchain and ZK proofs not enabled</span>
+          </div>
+        </div>
       </section>
     </>
   );

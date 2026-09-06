@@ -40,6 +40,12 @@ neo4j/
 
 Every relationship carries evidence references and an explicit status: `observed`, `corroborated`, or `predicted`.
 
+## Computation provenance
+
+The `/api/provenance` route creates a deterministic CASE-1004 computation trail. Each event commits its inputs and outputs with SHA-256 and includes the previous event hash. The Integrity view displays and verifies the resulting chain root. Neo4j persistence is optional for local development; the deterministic response remains available when Neo4j is offline.
+
+This is a tamper-evident computation trail, not yet a blockchain or zero-knowledge proof. It proves that the declared event sequence is internally consistent. Future ZK integration should prove the deterministic graph-analysis program over a committed graph snapshot, while OpenAI answer generation remains recorded with model, context, and citation metadata.
+
 ## Ingestion strategy
 
 1. Load `canonical_entities.csv` first to establish stable IDs and alias resolution.
