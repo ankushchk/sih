@@ -1,0 +1,31 @@
+{
+  "name": "evidencegraph",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "seed:neo4j": "tsx scripts/seed.ts",
+    "build": "next build",
+    "start": "next start",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "latest",
+    "lucide-react": "latest",
+    "three": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "neo4j-driver": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/three": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "tsx": "latest"
+  }
+}

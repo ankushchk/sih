@@ -1,0 +1,9 @@
+subject,object,relation,evidence_level,supporting_sources,notes
+P001,P002,MET,OBSERVED,FIR-1001;SURV-0001,Directly supported by FIR and co-location.
+P001,P003,ASSOCIATED_WITH,CORROBORATED,FIR-1001;CDR;SURV-0003,Communication and co-location support the link.
+P002,P003,ASSOCIATED_WITH,CORROBORATED,FIR-1002;CDR;SURV-0006,Repeated case/location/communication overlap.
+P003,P004,ASSOCIATED_WITH,CORROBORATED,FIR-1003;CDR;SURV-0009,Meeting and communication support the relationship.
+P001,P004,ASSOCIATED_WITH,CORROBORATED,FIR-1004;SURV-0012,Same event/location window.
+P003,P005,ASSOCIATED_WITH,CORROBORATED,FIR-1002;CDR;SURV-0006;TXN-0002,"Office, communication and financial evidence overlap."
+P004,P005,FINANCIAL_ASSOCIATION,OBSERVED,TXN-0004,Direct account-to-account transaction.
+P001,P005,POTENTIAL_ASSOCIATION,PREDICTED,GRAPH-001;TEMPORAL-001,Candidate indirect cross-cluster connection.

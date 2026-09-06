@@ -1,0 +1,4 @@
+priority,entity_id,expected_reason,recommended_algorithm
+1,P003,"Cross-case, cross-city and cross-community connectivity.",Betweenness centrality + community detection
+2,P001,Strong direct evidence across FIR/CDR/surveillance.,Degree + evidence corroboration
+3,P002,Repeated communication and co-location.,Degree + temporal analysis

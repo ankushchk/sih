@@ -1,0 +1,46 @@
+entity_id,entity_type,canonical_name,alias_or_identifier,linked_entity_id,jurisdiction
+P001,PERSON,Rahul Sharma,Raju,,Delhi
+P002,PERSON,Sameer Khan,Sam,,Noida
+P003,PERSON,Vikram Malhotra,Vicky,,Delhi
+P004,PERSON,Rakesh Yadav,Rocky,,Ghaziabad
+P005,PERSON,Imran Ali,Immi,,Noida
+P006,PERSON,Neha Verma,Neha,,Delhi
+P007,PERSON,Arjun Mehta,A.M.,,Gurugram
+P008,PERSON,Kavya Singh,Kavya,,Noida
+P009,PERSON,Deepak Rao,Deep,,Ghaziabad
+P010,PERSON,Mohit Sethi,M.S.,,Delhi
+P011,PERSON,Sana Qureshi,Sana,,Noida
+P012,PERSON,Ajay Batra,Ajay,,Delhi
+V001,VEHICLE,White SUV,DL01AB1234,P001,
+V002,VEHICLE,Black Sedan,UP16CD7788,P002,
+V003,VEHICLE,Grey Hatchback,DL8CAF4455,P003,
+V004,VEHICLE,White Van,UP14EF9090,P004,
+V005,VEHICLE,Blue Sedan,DL5GH2201,P005,
+A001,BANK_ACCOUNT,Northline Trading,,P001,
+A002,BANK_ACCOUNT,Sunrise Exports,,P002,
+A003,BANK_ACCOUNT,V-Metro Services,,P003,
+A004,BANK_ACCOUNT,R.Y. Enterprises,,P004,
+A005,BANK_ACCOUNT,Blue Arc Traders,,P005,
+A006,BANK_ACCOUNT,Kavya Consulting,,P008,
+A007,BANK_ACCOUNT,M.S. Wholesale,,P010,
+PH001,PHONE,9000000001,,P001,
+PH002,PHONE,9000000002,,P002,
+PH003,PHONE,9000000003,,P003,
+PH004,PHONE,9000000004,,P004,
+PH005,PHONE,9000000005,,P005,
+PH006,PHONE,9000000006,,P006,
+PH007,PHONE,9000000007,,P007,
+PH008,PHONE,9000000008,,P008,
+PH009,PHONE,9000000009,,P009,
+PH010,PHONE,9000000010,,P010,
+PH011,PHONE,9000000011,,P011,
+PH012,PHONE,9000000012,,P012,
+L001,LOCATION,Warehouse 7,,Noida,
+L002,LOCATION,Sector 18 Metro Parking,,Noida,
+L003,LOCATION,Cafe Meridian,,Delhi,
+L004,LOCATION,Old Industrial Road,,Ghaziabad,
+L005,LOCATION,Blue Arc Office,,Noida,
+L006,LOCATION,Central Bus Terminal,,Delhi,
+O001,ORGANIZATION,Northline Logistics,,,
+O002,ORGANIZATION,Blue Arc Traders,,,
+O003,ORGANIZATION,Metroline Couriers,,,

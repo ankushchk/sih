@@ -1,0 +1,142 @@
+[
+  {
+    "file": "README.md",
+    "bytes": 4064,
+    "sha256": "a70c0336a1e6db3a414039e9d810355c3cde4a284efdc09a76d3e6b7cd7ce103"
+  },
+  {
+    "file": "04_financial/transactions.csv",
+    "bytes": 3012,
+    "sha256": "00cc1eec51022fdeee0eaba90d6ae6ea70ee3a0fae4bb0f7fbf51c78cbf60a6d"
+  },
+  {
+    "file": "02_police_reports/PR-2002.pdf",
+    "bytes": 2157,
+    "sha256": "dd3a72c07157cf1cc68a9bf405f3364bdffe2f616249dd33569d354dc203a071"
+  },
+  {
+    "file": "02_police_reports/PR-2001.pdf",
+    "bytes": 2228,
+    "sha256": "ded3ec8a04ccf4b5e82fe5778fe9a4e08719ae58d41258686b67722a27cbec39"
+  },
+  {
+    "file": "02_police_reports/PR-2003.pdf",
+    "bytes": 2156,
+    "sha256": "5b63ff2f6c374e0c33b8fade32c846167f5627d745d8a884e29029f021f7c427"
+  },
+  {
+    "file": "02_police_reports/PR-2004.pdf",
+    "bytes": 2156,
+    "sha256": "412ad4e1bd79a28717bb474f4dbea29aaa88c56e5907e1de239e70e084bf4fd7"
+  },
+  {
+    "file": "06_vehicle/vehicle_registry.csv",
+    "bytes": 303,
+    "sha256": "d6091cfc53a7926e91f0ff45121ac0823ba5db10b425bf976d6e55bd2569d2d8"
+  },
+  {
+    "file": "13_website_demo/relationship_explanations.json",
+    "bytes": 629,
+    "sha256": "10135e1dc8c12e51b55124561cb2634f5b41560d134418a8ad1173ffa684d028"
+  },
+  {
+    "file": "13_website_demo/prebuilt_graph_edges.json",
+    "bytes": 1438,
+    "sha256": "02c7c441e095e0c34976562b75581fd4f0cf09056a8f9459f59dda973fde2db3"
+  },
+  {
+    "file": "13_website_demo/case_demo.json",
+    "bytes": 495,
+    "sha256": "eb2d2bcea1abb435752243841bd0b9524beaef6118a09c70e76fa91f501df7c2"
+  },
+  {
+    "file": "09_osint/social_posts.json",
+    "bytes": 8470,
+    "sha256": "c6115037028d519cc6fc6fefa07cd1b55bf5afacb42dfcd1e5ee8d47b0897fce"
+  },
+  {
+    "file": "05_surveillance/surveillance_events.csv",
+    "bytes": 4909,
+    "sha256": "0f616bbeec99134318d55659316118a085b75304a4b3ed9ab592b80fdd19209b"
+  },
+  {
+    "file": "10_criminal_history/criminal_history.csv",
+    "bytes": 388,
+    "sha256": "fb149d7088f3ae4c9106f5e4dcec20f5f64a14e4ffa5b77b27df5dab2dfcbe54"
+  },
+  {
+    "file": "11_intelligence/INT-4002.pdf",
+    "bytes": 2141,
+    "sha256": "110f87febe73d0e160a4cd266cdd2c215bf6c02d76318f36d63470feace1bbcf"
+  },
+  {
+    "file": "11_intelligence/INT-4001.pdf",
+    "bytes": 2182,
+    "sha256": "2d893fc16637db88a72dd43bd6f3e0a3b8fb161edd12c570a6fe81299ba2e24a"
+  },
+  {
+    "file": "01_firs/FIR-1001.pdf",
+    "bytes": 2368,
+    "sha256": "4473d172e0cdb9ea6820b718a12d83a25ddb0d6877a1d696fc9e6eadf9b72d2d"
+  },
+  {
+    "file": "01_firs/FIR-1002.pdf",
+    "bytes": 2349,
+    "sha256": "6f848f2ee95ec9a06e39fdcd56a985301d89ed9d8ebf0c14378cd354e03e7aeb"
+  },
+  {
+    "file": "01_firs/FIR-1005.pdf",
+    "bytes": 2288,
+    "sha256": "5cc6b246c90d80f1ac47686e2f1e67a8003c4d17c2caa8810609bd48464c4b43"
+  },
+  {
+    "file": "01_firs/FIR-1003.pdf",
+    "bytes": 2344,
+    "sha256": "a98c80eb5ca506b08dc47e755ce741dd771104dc5739a60dd3587c2e6421638a"
+  },
+  {
+    "file": "01_firs/FIR-1004.pdf",
+    "bytes": 2309,
+    "sha256": "8a2c49ef5e3bb090195113b8ea49f1ad868385c4e111d4781a8f36024929af5c"
+  },
+  {
+    "file": "12_ground_truth/canonical_entities.csv",
+    "bytes": 1801,
+    "sha256": "ce341c1da81a33f2b54037673db3293cc0ffad592a81d941f2148218f36a0180"
+  },
+  {
+    "file": "12_ground_truth/expected_leads.csv",
+    "bytes": 337,
+    "sha256": "9ee95ced92edd5800dae069f698d330495eea1cd6cf7d947884ee2154c6bbec8"
+  },
+  {
+    "file": "12_ground_truth/ground_truth_relationships.csv",
+    "bytes": 902,
+    "sha256": "8b39da0392f8b7f294be3c2b25167eeedbf58f20a0b5f3ae726b7ebd8be49bfd"
+  },
+  {
+    "file": "08_audio_transcripts/audio_metadata.csv",
+    "bytes": 194,
+    "sha256": "7519e61bde0f0262a14d5ca806a41b8b60177b61f6166d1667281706006e7023"
+  },
+  {
+    "file": "08_audio_transcripts/hearing_transcripts.txt",
+    "bytes": 531,
+    "sha256": "c4620a016ffa0b7f694cca703143217bc9368c84b3a36e3fceee38bd36854162"
+  },
+  {
+    "file": "03_cdr/cdr_records.csv",
+    "bytes": 11587,
+    "sha256": "663db9af6e9760e2561d118662d79afcd12e86f323fa9de967a72905804a6a93"
+  },
+  {
+    "file": "07_court/CT-3001.pdf",
+    "bytes": 2173,
+    "sha256": "a3a98135ebed246196df18ce96e83c54a0c38f975c1b09a36e4d2e7d706202f6"
+  },
+  {
+    "file": "07_court/CT-3002.pdf",
+    "bytes": 2192,
+    "sha256": "22c6738d2764234dd064a5a9f14bd8fdeb4835d497423e607c12ded385f51650"
+  }
+]

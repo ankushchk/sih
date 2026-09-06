@@ -1,0 +1,24 @@
+[
+  {
+    "edge": "P001-P003",
+    "title": "Rahul Sharma \u2194 Vikram Malhotra",
+    "status": "CORROBORATED",
+    "score": 0.91,
+    "why": [
+      "Both appear in FIR-1001 context.",
+      "CDR shows repeated communication between their linked phones.",
+      "Surveillance places them in the Warehouse 7 area."
+    ]
+  },
+  {
+    "edge": "P001-P005",
+    "title": "Rahul Sharma \u2194 Imran Ali",
+    "status": "PREDICTED LEAD",
+    "score": 0.74,
+    "why": [
+      "They share a path through Vikram.",
+      "Their activity overlaps temporally.",
+      "No direct source currently proves a direct association."
+    ]
+  }
+]

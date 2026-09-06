@@ -1,0 +1,86 @@
+[
+  {
+    "source": "P001",
+    "target": "P002",
+    "type": "MET",
+    "status": "observed",
+    "evidence": [
+      "FIR-1001",
+      "SURV-0001"
+    ]
+  },
+  {
+    "source": "P001",
+    "target": "P003",
+    "type": "ASSOCIATED_WITH",
+    "status": "corroborated",
+    "evidence": [
+      "FIR-1001",
+      "CDR",
+      "SURV-0003"
+    ]
+  },
+  {
+    "source": "P002",
+    "target": "P003",
+    "type": "ASSOCIATED_WITH",
+    "status": "corroborated",
+    "evidence": [
+      "FIR-1002",
+      "CDR",
+      "SURV-0006"
+    ]
+  },
+  {
+    "source": "P003",
+    "target": "P004",
+    "type": "ASSOCIATED_WITH",
+    "status": "corroborated",
+    "evidence": [
+      "FIR-1003",
+      "CDR",
+      "SURV-0009"
+    ]
+  },
+  {
+    "source": "P001",
+    "target": "P004",
+    "type": "ASSOCIATED_WITH",
+    "status": "corroborated",
+    "evidence": [
+      "FIR-1004",
+      "SURV-0012"
+    ]
+  },
+  {
+    "source": "P003",
+    "target": "P005",
+    "type": "ASSOCIATED_WITH",
+    "status": "corroborated",
+    "evidence": [
+      "FIR-1002",
+      "CDR",
+      "SURV-0006",
+      "TXN-0002"
+    ]
+  },
+  {
+    "source": "P004",
+    "target": "P005",
+    "type": "FINANCIAL_ASSOCIATION",
+    "status": "observed",
+    "evidence": [
+      "TXN-0004"
+    ]
+  },
+  {
+    "source": "P001",
+    "target": "P005",
+    "type": "POTENTIAL_ASSOCIATION",
+    "status": "predicted",
+    "evidence": [
+      "GRAPH-001",
+      "TEMPORAL-001"
+    ]
+  }
+]

@@ -1,0 +1,7 @@
+history_id,person_id,case_id,date,status,category
+H001,P001,CASE-0901,2025-10-14,CLOSED,Fraud inquiry
+H002,P002,CASE-0903,2025-12-02,PENDING,Financial dispute
+H003,P003,CASE-0905,2026-02-11,PENDING,Commercial dispute
+H004,P004,CASE-0907,2025-11-22,CLOSED,Assault complaint
+H005,P005,CASE-0911,2026-03-14,PENDING,Fraud inquiry
+H006,P010,CASE-0917,2026-01-03,CLOSED,Document dispute

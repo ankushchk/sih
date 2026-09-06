@@ -1,0 +1,20 @@
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: evidencegraph-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/evidencegraph
+      NEO4J_server_memory_pagecache_size: 512M
+      NEO4J_server_memory_heap_initial__size: 512M
+      NEO4J_server_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - evidencegraph_neo4j_data:/data
+      - evidencegraph_neo4j_logs:/logs
+
+volumes:
+  evidencegraph_neo4j_data:
+  evidencegraph_neo4j_logs:

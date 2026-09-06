@@ -1,0 +1,12 @@
+{
+  "case_id": "CASE-1004",
+  "title": "Cafe Meridian Network Demonstration",
+  "story": [
+    "Open FIR-1004 and identify Rahul, Vikram and Rakesh.",
+    "Cross-check CDR and surveillance records.",
+    "Process hearing transcript and extract the Rakesh/Vikram/Rahul relationships.",
+    "Show the graph and highlight Vikram as a bridge/intermediary.",
+    "Click an edge to show the supporting evidence records.",
+    "Optionally show a potential predicted link between Rahul and Imran."
+  ]
+}
