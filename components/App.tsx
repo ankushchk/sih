@@ -1,104 +1,1623 @@
-"use client"
+"use client";
 
-import { useState } from 'react'
-import { Activity, ArrowRight, Bell, BookOpen, BrainCircuit, Check, ChevronRight, CircleAlert, Clock3, FileCheck2, FileText, Fingerprint, GitBranch, Globe2, Hexagon, KeyRound, LockKeyhole, LogIn, Menu, Network, PanelLeft, Play, Search, ShieldCheck, SlidersHorizontal, Sparkles, Target, UserRound, Users, X } from 'lucide-react'
-import { GraphScene } from './GraphScene'
-import { cases, entityById, evidence, leads, people, patterns, relationships, resources, timeline, type Resource } from '../src/data'
+import { useState } from "react";
+import {
+  Activity,
+  ArrowRight,
+  Bell,
+  BookOpen,
+  BrainCircuit,
+  Check,
+  ChevronRight,
+  CircleAlert,
+  Clock3,
+  FileCheck2,
+  FileText,
+  Fingerprint,
+  GitBranch,
+  Globe2,
+  Hexagon,
+  KeyRound,
+  LockKeyhole,
+  LogIn,
+  Menu,
+  Network,
+  PanelLeft,
+  Play,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Target,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
+import { GraphScene } from "./GraphScene";
+import {
+  cases,
+  entityById,
+  evidence,
+  leads,
+  people,
+  patterns,
+  relationships,
+  resources,
+  timeline,
+  type Resource,
+} from "../src/data";
 
-type View = 'overview' | 'cases' | 'resources' | 'evidence' | 'network' | 'intelligence' | 'timeline' | 'integrity'
+type View =
+  | "overview"
+  | "cases"
+  | "resources"
+  | "evidence"
+  | "network"
+  | "intelligence"
+  | "timeline"
+  | "integrity";
 
 function App() {
-  const [screen, setScreen] = useState<'landing' | 'login' | 'app'>('landing')
-  const [view, setView] = useState<View>('overview')
-  const [selectedEntity, setSelectedEntity] = useState('P003')
-  const [selectedEdge, setSelectedEdge] = useState('P001-P003')
-  const [search, setSearch] = useState('')
-  const [sidebar, setSidebar] = useState(true)
-  const [processed, setProcessed] = useState(false)
+  const [screen, setScreen] = useState<"landing" | "login" | "app">("landing");
+  const [view, setView] = useState<View>("network");
+  const [selectedEntity, setSelectedEntity] = useState("P003");
+  const [selectedEdge, setSelectedEdge] = useState("P001-P003");
+  const [search, setSearch] = useState("");
+  const [sidebar, setSidebar] = useState(true);
+  const [processed, setProcessed] = useState(false);
 
-  if (screen === 'landing') return <Landing onEnter={() => setScreen('login')} />
-  if (screen === 'login') return <Login onLogin={() => setScreen('app')} />
+  if (screen === "landing")
+    return <Landing onEnter={() => setScreen("login")} />;
+  if (screen === "login") return <Login onLogin={() => setScreen("app")} />;
 
-  const selected = entityById(selectedEntity)
-  const edge = relationships.find((item) => item.id === selectedEdge) ?? relationships[1]
-  const edgeSource = entityById(edge.source)?.name ?? edge.source
-  const edgeTarget = entityById(edge.target)?.name ?? edge.target
+  const selected = entityById(selectedEntity);
+  const edge =
+    relationships.find((item) => item.id === selectedEdge) ?? relationships[1];
+  const edgeSource = entityById(edge.source)?.name ?? edge.source;
+  const edgeTarget = entityById(edge.target)?.name ?? edge.target;
 
-  return <div className="app-shell">
-    <aside className={`sidebar ${sidebar ? '' : 'collapsed'}`}>
-      <div className="brand"><span className="brand-mark"><Hexagon size={18} strokeWidth={1.5} /></span>{sidebar && <span>Evidence<span className="brand-accent">Graph</span></span>}</div>
-      {sidebar && <div className="case-selector"><span className="eyebrow">ACTIVE INVESTIGATION</span><strong>CASE-1004</strong><span className="case-selector-title">Cafe Meridian Network</span><ChevronRight size={15} /></div>}
-      <nav className="nav-list">
-        <NavItem icon={<PanelLeft size={17} />} label="Command center" active={view === 'overview'} onClick={() => setView('overview')} compact={!sidebar} />
-        <NavItem icon={<BookOpen size={17} />} label="Cases" active={view === 'cases'} onClick={() => setView('cases')} compact={!sidebar} badge="4" />
-        <NavItem icon={<FileText size={17} />} label="Evidence inbox" active={view === 'evidence'} onClick={() => setView('evidence')} compact={!sidebar} badge="8" />
-        <NavItem icon={<Globe2 size={17} />} label="Resource library" active={view === 'resources'} onClick={() => setView('resources')} compact={!sidebar} badge="11" />
-        <div className="nav-section">INVESTIGATE</div>
-        <NavItem icon={<Network size={17} />} label="Network graph" active={view === 'network'} onClick={() => setView('network')} compact={!sidebar} />
-        <NavItem icon={<BrainCircuit size={17} />} label="Intelligence" active={view === 'intelligence'} onClick={() => setView('intelligence')} compact={!sidebar} badge="3" />
-        <NavItem icon={<Clock3 size={17} />} label="Timeline" active={view === 'timeline'} onClick={() => setView('timeline')} compact={!sidebar} />
-        <div className="nav-section">CONTROL</div>
-        <NavItem icon={<ShieldCheck size={17} />} label="Security & access" active={view === 'integrity'} onClick={() => setView('integrity')} compact={!sidebar} />
-        <NavItem icon={<Fingerprint size={17} />} label="Evidence integrity" active={view === 'integrity'} onClick={() => setView('integrity')} compact={!sidebar} />
-      </nav>
-      {sidebar && <div className="sidebar-bottom"><div className="secure-note"><LockKeyhole size={15} /><span>Prototype mode<br /><b>All data is synthetic</b></span></div><div className="profile"><div className="avatar">AM</div><div><strong>Ananya Mehta</strong><small>Lead investigator</small></div><ChevronRight size={14} /></div></div>}
-    </aside>
-    <main className="main-shell">
-      <header className="topbar"><button className="icon-button menu-button" onClick={() => setSidebar(!sidebar)}><Menu size={18} /></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14} /><strong>{view === 'overview' ? 'Command center' : view[0].toUpperCase() + view.slice(1)}</strong></div><div className="top-actions"><div className="global-search"><Search size={16} /><input placeholder="Search entities, cases, evidence..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></div><button className="icon-button"><Bell size={17} /><i className="notification-dot" /></button><div className="top-avatar">AM</div></div></header>
-      <div className="content-scroll">
-        {view === 'overview' && <Overview setView={setView} processed={processed} setProcessed={setProcessed} />}
-        {view === 'cases' && <Cases setView={setView} />}
-        {view === 'evidence' && <EvidenceInbox processed={processed} setProcessed={setProcessed} />}
-        {view === 'resources' && <ResourceLibrary setView={setView} />}
-        {view === 'network' && <NetworkView selectedEntity={selectedEntity} setSelectedEntity={setSelectedEntity} selectedEdge={selectedEdge} setSelectedEdge={setSelectedEdge} />}
-        {view === 'intelligence' && <Intelligence setSelectedEntity={setSelectedEntity} setView={setView} />}
-        {view === 'timeline' && <Timeline />}
-        {view === 'integrity' && <Integrity />}
-      </div>
-    </main>
-    {view === 'network' && <aside className="detail-drawer"><button className="drawer-close"><X size={16} /></button><span className="eyebrow">RELATIONSHIP EXPLORER</span><div className="relationship-title"><div className="connection-node">{edgeSource.slice(0, 1)}</div><div className="connection-line" /><div className="connection-node green">{edgeTarget.slice(0, 1)}</div></div><h2>{edgeSource} <span>↔</span> {edgeTarget}</h2><div className={`status-pill ${edge.status}`}><i /> {edge.status.toUpperCase()} {edge.status === 'predicted' && 'LEAD'}</div><div className="confidence-row"><span>Confidence score</span><strong>{Math.round(edge.confidence * 100)}%</strong></div><div className="confidence-bar"><i style={{ width: `${edge.confidence * 100}%` }} /></div><div className="why-block"><h3><Sparkles size={15} /> Why this connection?</h3><p>{edge.status === 'predicted' ? 'This is a potential association inferred from graph patterns. It is not directly supported by a source record.' : 'Independent source types converge on this observed relationship across the investigation timeline.'}</p><ul>{edge.evidence.length ? edge.evidence.map((id) => <li key={id}><Check size={14} /> <span>{id}</span><small>{evidence.find((item) => item.id === id)?.type ?? 'GRAPH SIGNAL'}</small></li>) : <li className="muted"><CircleAlert size={14} /> No direct source currently proves this association.</li>}</ul></div><button className="full-button" onClick={() => setView('evidence')}>Open supporting evidence <ArrowRight size={15} /></button></aside>}
-  </div>
+  return (
+    <div className="app-shell">
+      <aside className={`sidebar ${sidebar ? "" : "collapsed"}`}>
+        <div className="brand">
+          <span className="brand-mark">
+            <Hexagon size={18} strokeWidth={1.5} />
+          </span>
+          {sidebar && (
+            <span>
+              Evidence<span className="brand-accent">Graph</span>
+            </span>
+          )}
+        </div>
+        {sidebar && (
+          <div className="case-selector">
+            <span className="eyebrow">ACTIVE INVESTIGATION</span>
+            <strong>CASE-1004</strong>
+            <span className="case-selector-title">Cafe Meridian Network</span>
+            <ChevronRight size={15} />
+          </div>
+        )}
+        <nav className="nav-list">
+          <NavItem
+            icon={<PanelLeft size={17} />}
+            label="Command center"
+            active={view === "overview"}
+            onClick={() => setView("overview")}
+            compact={!sidebar}
+          />
+          <NavItem
+            icon={<BookOpen size={17} />}
+            label="Cases"
+            active={view === "cases"}
+            onClick={() => setView("cases")}
+            compact={!sidebar}
+            badge="4"
+          />
+          <NavItem
+            icon={<FileText size={17} />}
+            label="Evidence inbox"
+            active={view === "evidence"}
+            onClick={() => setView("evidence")}
+            compact={!sidebar}
+            badge="8"
+          />
+          <NavItem
+            icon={<Globe2 size={17} />}
+            label="Resource library"
+            active={view === "resources"}
+            onClick={() => setView("resources")}
+            compact={!sidebar}
+            badge="11"
+          />
+          <div className="nav-section">INVESTIGATE</div>
+          <NavItem
+            icon={<Network size={17} />}
+            label="Network graph"
+            active={view === "network"}
+            onClick={() => setView("network")}
+            compact={!sidebar}
+          />
+          <NavItem
+            icon={<BrainCircuit size={17} />}
+            label="Intelligence"
+            active={view === "intelligence"}
+            onClick={() => setView("intelligence")}
+            compact={!sidebar}
+            badge="3"
+          />
+          <NavItem
+            icon={<Clock3 size={17} />}
+            label="Timeline"
+            active={view === "timeline"}
+            onClick={() => setView("timeline")}
+            compact={!sidebar}
+          />
+          <div className="nav-section">CONTROL</div>
+          <NavItem
+            icon={<ShieldCheck size={17} />}
+            label="Security & access"
+            active={view === "integrity"}
+            onClick={() => setView("integrity")}
+            compact={!sidebar}
+          />
+          <NavItem
+            icon={<Fingerprint size={17} />}
+            label="Evidence integrity"
+            active={view === "integrity"}
+            onClick={() => setView("integrity")}
+            compact={!sidebar}
+          />
+        </nav>
+        {sidebar && (
+          <div className="sidebar-bottom">
+            <div className="secure-note">
+              <LockKeyhole size={15} />
+              <span>
+                Prototype mode
+                <br />
+                <b>All data is synthetic</b>
+              </span>
+            </div>
+            <div className="profile">
+              <div className="avatar">AM</div>
+              <div>
+                <strong>Ananya Mehta</strong>
+                <small>Lead investigator</small>
+              </div>
+              <ChevronRight size={14} />
+            </div>
+          </div>
+        )}
+      </aside>
+      <main className="main-shell">
+        <header className="topbar">
+          <button
+            className="icon-button menu-button"
+            onClick={() => setSidebar(!sidebar)}
+          >
+            <Menu size={18} />
+          </button>
+          <div className="breadcrumb">
+            <span>Workspace</span>
+            <ChevronRight size={14} />
+            <strong>
+              {view === "overview"
+                ? "Command center"
+                : view[0].toUpperCase() + view.slice(1)}
+            </strong>
+          </div>
+          <div className="top-actions">
+            <div className="global-search">
+              <Search size={16} />
+              <input
+                placeholder="Search entities, cases, evidence..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <kbd>⌘ K</kbd>
+            </div>
+            <button className="icon-button">
+              <Bell size={17} />
+              <i className="notification-dot" />
+            </button>
+            <div className="top-avatar">AM</div>
+          </div>
+        </header>
+        <div className="content-scroll">
+          {view === "overview" && (
+            <Overview
+              setView={setView}
+              processed={processed}
+              setProcessed={setProcessed}
+            />
+          )}
+          {view === "cases" && <Cases setView={setView} />}
+          {view === "evidence" && (
+            <EvidenceInbox processed={processed} setProcessed={setProcessed} />
+          )}
+          {view === "resources" && <ResourceLibrary setView={setView} />}
+          {view === "network" && (
+            <NetworkView
+              selectedEntity={selectedEntity}
+              setSelectedEntity={setSelectedEntity}
+              selectedEdge={selectedEdge}
+              setSelectedEdge={setSelectedEdge}
+            />
+          )}
+          {view === "intelligence" && (
+            <Intelligence
+              setSelectedEntity={setSelectedEntity}
+              setView={setView}
+            />
+          )}
+          {view === "timeline" && <Timeline />}
+          {view === "integrity" && <Integrity />}
+        </div>
+      </main>
+      {view === "network" && (
+        <aside className="detail-drawer">
+          <button className="drawer-close">
+            <X size={16} />
+          </button>
+          <span className="eyebrow">RELATIONSHIP EXPLORER</span>
+          <div className="relationship-title">
+            <div className="connection-node">{edgeSource.slice(0, 1)}</div>
+            <div className="connection-line" />
+            <div className="connection-node green">
+              {edgeTarget.slice(0, 1)}
+            </div>
+          </div>
+          <h2>
+            {edgeSource} <span>↔</span> {edgeTarget}
+          </h2>
+          <div className={`status-pill ${edge.status}`}>
+            <i /> {edge.status.toUpperCase()}{" "}
+            {edge.status === "predicted" && "LEAD"}
+          </div>
+          <div className="confidence-row">
+            <span>Confidence score</span>
+            <strong>{Math.round(edge.confidence * 100)}%</strong>
+          </div>
+          <div className="confidence-bar">
+            <i style={{ width: `${edge.confidence * 100}%` }} />
+          </div>
+          <div className="why-block">
+            <h3>
+              <Sparkles size={15} /> Why this connection?
+            </h3>
+            <p>
+              {edge.status === "predicted"
+                ? "This is a potential association inferred from graph patterns. It is not directly supported by a source record."
+                : "Independent source types converge on this observed relationship across the investigation timeline."}
+            </p>
+            <ul>
+              {edge.evidence.length ? (
+                edge.evidence.map((id) => (
+                  <li key={id}>
+                    <Check size={14} /> <span>{id}</span>
+                    <small>
+                      {evidence.find((item) => item.id === id)?.type ??
+                        "GRAPH SIGNAL"}
+                    </small>
+                  </li>
+                ))
+              ) : (
+                <li className="muted">
+                  <CircleAlert size={14} /> No direct source currently proves
+                  this association.
+                </li>
+              )}
+            </ul>
+          </div>
+          <button className="full-button" onClick={() => setView("evidence")}>
+            Open supporting evidence <ArrowRight size={15} />
+          </button>
+        </aside>
+      )}
+    </div>
+  );
 }
 
-function Landing({ onEnter }: { onEnter: () => void }) { return <div className="landing"><div className="landing-backdrop"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="landing-grid" /></div><nav className="landing-nav"><div className="brand landing-brand"><span className="brand-mark"><Hexagon size={18} /></span>Evidence<span className="brand-accent">Graph</span></div><div className="landing-links"><a>Product</a><a>Case studies</a><a>Security</a><a>Contact</a></div><button className="outline-button" onClick={onEnter}>Enter workspace <ArrowRight size={15} /></button></nav><section className="hero"><div className="hero-kicker"><span className="live-dot" /> Synthetic investigation environment · SIH26189</div><h1>Connect the <em>evidence.</em><br />Reveal the network.</h1><p>EvidenceGraph turns fragmented case material into a living, explainable intelligence workspace. Every connection has a source. Every lead shows its reasoning.</p><div className="hero-actions"><button className="primary-button" onClick={onEnter}>Enter investigation workspace <ArrowRight size={16} /></button><button className="play-button"><span><Play size={12} fill="currentColor" /></span> See how it works</button></div><div className="hero-foot"><div><strong>14</strong><span>source types<br />connected</span></div><div><strong>01</strong><span>unified evidence<br />graph</span></div><div><strong>WHY</strong><span>before every<br />important insight</span></div></div></section><div className="landing-footer"><span>Built for the National Crime Records Bureau · Women Safety Division</span><span>Prototype / fictional data only</span></div></div> }
+function Landing({ onEnter }: { onEnter: () => void }) {
+  return (
+    <div className="landing">
+      <div className="landing-backdrop">
+        <div className="orbit orbit-one" />
+        <div className="orbit orbit-two" />
+        <div className="landing-grid" />
+      </div>
+      <nav className="landing-nav">
+        <div className="brand landing-brand">
+          <span className="brand-mark">
+            <Hexagon size={18} />
+          </span>
+          Evidence<span className="brand-accent">Graph</span>
+        </div>
+        <div className="landing-links">
+          <a>Product</a>
+          <a>Case studies</a>
+          <a>Security</a>
+          <a>Contact</a>
+        </div>
+        <button className="outline-button" onClick={onEnter}>
+          Enter workspace <ArrowRight size={15} />
+        </button>
+      </nav>
+      <section className="hero">
+        <div className="hero-kicker">
+          <span className="live-dot" /> Synthetic investigation environment ·
+          SIH26189
+        </div>
+        <h1>
+          Connect the <em>evidence.</em>
+          <br />
+          Reveal the network.
+        </h1>
+        <p>
+          EvidenceGraph turns fragmented case material into a living,
+          explainable intelligence workspace. Every connection has a source.
+          Every lead shows its reasoning.
+        </p>
+        <div className="hero-actions">
+          <button className="primary-button" onClick={onEnter}>
+            Enter investigation workspace <ArrowRight size={16} />
+          </button>
+          <button className="play-button">
+            <span>
+              <Play size={12} fill="currentColor" />
+            </span>{" "}
+            See how it works
+          </button>
+        </div>
+        <div className="hero-foot">
+          <div>
+            <strong>14</strong>
+            <span>
+              source types
+              <br />
+              connected
+            </span>
+          </div>
+          <div>
+            <strong>01</strong>
+            <span>
+              unified evidence
+              <br />
+              graph
+            </span>
+          </div>
+          <div>
+            <strong>WHY</strong>
+            <span>
+              before every
+              <br />
+              important insight
+            </span>
+          </div>
+        </div>
+      </section>
+      <div className="landing-footer">
+        <span>
+          Built for the National Crime Records Bureau · Women Safety Division
+        </span>
+        <span>Prototype / fictional data only</span>
+      </div>
+    </div>
+  );
+}
 
-function Login({ onLogin }: { onLogin: () => void }) { return <div className="login-screen"><div className="login-glow" /><div className="login-card"><div className="brand login-brand"><span className="brand-mark"><Hexagon size={18} /></span>Evidence<span className="brand-accent">Graph</span></div><div className="login-intro"><span className="eyebrow">SECURE INVESTIGATION ACCESS</span><h1>Welcome back.</h1><p>Sign in to your protected investigation workspace.</p></div><label>Official email<input defaultValue="ananya.mehta@ncrb.gov.in" /></label><label>Password<div className="input-with-icon"><input type="password" defaultValue="evidencegraph" /><LockKeyhole size={16} /></div></label><div className="login-meta"><span><input type="checkbox" defaultChecked /> Trust this device</span><a>Reset password</a></div><button className="primary-button login-submit" onClick={onLogin}>Continue to workspace <ArrowRight size={16} /></button><div className="mfa-note"><ShieldCheck size={16} /><span>MFA is enabled for this account<br /><b>Last verified today at 09:42 IST</b></span></div></div><span className="login-legal">EvidenceGraph · Prototype environment · Synthetic data only</span></div> }
+function Login({ onLogin }: { onLogin: () => void }) {
+  return (
+    <div className="login-screen">
+      <div className="login-glow" />
+      <div className="login-card">
+        <div className="brand login-brand">
+          <span className="brand-mark">
+            <Hexagon size={18} />
+          </span>
+          Evidence<span className="brand-accent">Graph</span>
+        </div>
+        <div className="login-intro">
+          <span className="eyebrow">SECURE INVESTIGATION ACCESS</span>
+          <h1>Welcome back.</h1>
+          <p>Sign in to your protected investigation workspace.</p>
+        </div>
+        <label>
+          Official email
+          <input defaultValue="ananya.mehta@ncrb.gov.in" />
+        </label>
+        <label>
+          Password
+          <div className="input-with-icon">
+            <input type="password" defaultValue="evidencegraph" />
+            <LockKeyhole size={16} />
+          </div>
+        </label>
+        <div className="login-meta">
+          <span>
+            <input type="checkbox" defaultChecked /> Trust this device
+          </span>
+          <a>Reset password</a>
+        </div>
+        <button className="primary-button login-submit" onClick={onLogin}>
+          Continue to workspace <ArrowRight size={16} />
+        </button>
+        <div className="mfa-note">
+          <ShieldCheck size={16} />
+          <span>
+            MFA is enabled for this account
+            <br />
+            <b>Last verified today at 09:42 IST</b>
+          </span>
+        </div>
+      </div>
+      <span className="login-legal">
+        EvidenceGraph · Prototype environment · Synthetic data only
+      </span>
+    </div>
+  );
+}
 
-function NavItem({ icon, label, active, onClick, compact, badge }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void; compact: boolean; badge?: string }) { return <button className={`nav-item ${active ? 'active' : ''} ${compact ? 'compact' : ''}`} onClick={onClick} title={compact ? label : undefined}>{icon}{!compact && <><span>{label}</span>{badge && <b>{badge}</b>}</>}</button> }
+function NavItem({
+  icon,
+  label,
+  active,
+  onClick,
+  compact,
+  badge,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  compact: boolean;
+  badge?: string;
+}) {
+  return (
+    <button
+      className={`nav-item ${active ? "active" : ""} ${compact ? "compact" : ""}`}
+      onClick={onClick}
+      title={compact ? label : undefined}
+    >
+      {icon}
+      {!compact && (
+        <>
+          <span>{label}</span>
+          {badge && <b>{badge}</b>}
+        </>
+      )}
+    </button>
+  );
+}
 
-function PageTitle({ eyebrow, title, copy, action }: { eyebrow: string; title: string; copy?: string; action?: React.ReactNode }) { return <div className="page-title"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1>{copy && <p>{copy}</p>}</div>{action}</div> }
+function PageTitle({
+  eyebrow,
+  title,
+  copy,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  copy?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="page-title">
+      <div>
+        <span className="eyebrow">{eyebrow}</span>
+        <h1>{title}</h1>
+        {copy && <p>{copy}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
 
-function Overview({ setView, processed, setProcessed }: { setView: (v: View) => void; processed: boolean; setProcessed: (v: boolean) => void }) { return <><PageTitle eyebrow="COMMAND CENTER / 06 SEP 2026" title="Good morning, Ananya." copy="Here is the signal across your active investigations." action={<button className="primary-button" onClick={() => setView('network')}>Open network <Network size={15} /></button>} /><div className="signal-banner"><div className="signal-icon"><Activity size={18} /></div><div><span className="eyebrow">LEAD SIGNAL · HIGH PRIORITY</span><h3>Vikram Malhotra is the strongest cross-community intermediary</h3><p>5 cross-source relationships · 4 case contexts · bridge score 0.91</p></div><button onClick={() => { setView('network'); }}>Investigate <ArrowRight size={15} /></button></div><div className="metric-grid"><Metric label="Active cases" value="03" detail="1 requires attention" icon={<Target size={17} />} tone="orange" /><Metric label="Evidence records" value="52" detail="8 new this week" icon={<FileCheck2 size={17} />} tone="blue" /><Metric label="Entities resolved" value="12" detail="4 aliases matched" icon={<Users size={17} />} tone="green" /><Metric label="Open leads" value="03" detail="1 high priority" icon={<Sparkles size={17} />} tone="purple" /></div><div className="overview-grid"><section className="panel case-panel"><PanelHeading title="Active investigation" action="Open case" onAction={() => setView('cases')} /><div className="case-hero"><div className="case-tag">CASE-1004 <span>ACTIVE</span></div><h2>Cafe Meridian Network Demonstration</h2><p>Primary demo case · Delhi / Noida jurisdiction</p><div className="case-progress"><div><span>Evidence processing</span><strong>{processed ? '100%' : '72%'}</strong></div><div className="progress-track"><i style={{ width: processed ? '100%' : '72%' }} /></div></div><button className="text-button" onClick={() => setView('evidence')}>{processed ? 'Review extracted results' : 'Continue processing'} <ArrowRight size={14} /></button></div></section><section className="panel leads-panel"><PanelHeading title="Priority leads" action="View all" onAction={() => setView('intelligence')} />{leads.map((lead) => <button className="lead-row" key={lead.id} onClick={() => setView('intelligence')}><span className="lead-rank">{lead.rank}</span><span className="lead-name"><strong>{lead.name}</strong><small>{lead.label}</small></span><span className="lead-score">{lead.score}</span><ChevronRight size={15} /></button>)}</section></div><div className="bottom-grid"><section className="panel activity-panel"><PanelHeading title="Recent activity" action="Audit trail" onAction={() => setView('integrity')} />{[['09:42', 'Evidence hash verified', 'FIR-1004.pdf · integrity ledger', 'green'], ['09:18', 'Entity resolved', '“Raju” → P001 Rahul Sharma', 'blue'], ['Yesterday', 'New lead generated', 'Rahul ↔ Imran · predicted', 'purple']].map(([time, title, sub, tone]) => <div className="activity-row" key={title}><span className={`activity-dot ${tone}`} /><span className="activity-time">{time}</span><span><strong>{title}</strong><small>{sub}</small></span></div>)}</section><section className="panel processing-panel"><PanelHeading title="Evidence pipeline" action="Evidence inbox" onAction={() => setView('evidence')} /><div className="pipeline"><PipelineStep icon={<FileText size={16} />} label="Ingested" value="08" done /><PipelineStep icon={<BrainCircuit size={16} />} label="Extracted" value={processed ? '08' : '06'} done={processed} /><PipelineStep icon={<GitBranch size={16} />} label="Resolved" value="12" done /><PipelineStep icon={<Network size={16} />} label="In graph" value="08" done /></div></section></div></> }
+function Overview({
+  setView,
+  processed,
+  setProcessed,
+}: {
+  setView: (v: View) => void;
+  processed: boolean;
+  setProcessed: (v: boolean) => void;
+}) {
+  return (
+    <>
+      <PageTitle
+        eyebrow="COMMAND CENTER / 06 SEP 2026"
+        title="Good morning, Ananya."
+        copy="Here is the signal across your active investigations."
+        action={
+          <button className="primary-button" onClick={() => setView("network")}>
+            Open network <Network size={15} />
+          </button>
+        }
+      />
+      <div className="signal-banner">
+        <div className="signal-icon">
+          <Activity size={18} />
+        </div>
+        <div>
+          <span className="eyebrow">LEAD SIGNAL · HIGH PRIORITY</span>
+          <h3>Vikram Malhotra is the strongest cross-community intermediary</h3>
+          <p>
+            5 cross-source relationships · 4 case contexts · bridge score 0.91
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setView("network");
+          }}
+        >
+          Investigate <ArrowRight size={15} />
+        </button>
+      </div>
+      <div className="metric-grid">
+        <Metric
+          label="Active cases"
+          value="03"
+          detail="1 requires attention"
+          icon={<Target size={17} />}
+          tone="orange"
+        />
+        <Metric
+          label="Evidence records"
+          value="52"
+          detail="8 new this week"
+          icon={<FileCheck2 size={17} />}
+          tone="blue"
+        />
+        <Metric
+          label="Entities resolved"
+          value="12"
+          detail="4 aliases matched"
+          icon={<Users size={17} />}
+          tone="green"
+        />
+        <Metric
+          label="Open leads"
+          value="03"
+          detail="1 high priority"
+          icon={<Sparkles size={17} />}
+          tone="purple"
+        />
+      </div>
+      <div className="overview-grid">
+        <section className="panel case-panel">
+          <PanelHeading
+            title="Active investigation"
+            action="Open case"
+            onAction={() => setView("cases")}
+          />
+          <div className="case-hero">
+            <div className="case-tag">
+              CASE-1004 <span>ACTIVE</span>
+            </div>
+            <h2>Cafe Meridian Network Demonstration</h2>
+            <p>Primary demo case · Delhi / Noida jurisdiction</p>
+            <div className="case-progress">
+              <div>
+                <span>Evidence processing</span>
+                <strong>{processed ? "100%" : "72%"}</strong>
+              </div>
+              <div className="progress-track">
+                <i style={{ width: processed ? "100%" : "72%" }} />
+              </div>
+            </div>
+            <button className="text-button" onClick={() => setView("evidence")}>
+              {processed ? "Review extracted results" : "Continue processing"}{" "}
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </section>
+        <section className="panel leads-panel">
+          <PanelHeading
+            title="Priority leads"
+            action="View all"
+            onAction={() => setView("intelligence")}
+          />
+          {leads.map((lead) => (
+            <button
+              className="lead-row"
+              key={lead.id}
+              onClick={() => setView("intelligence")}
+            >
+              <span className="lead-rank">{lead.rank}</span>
+              <span className="lead-name">
+                <strong>{lead.name}</strong>
+                <small>{lead.label}</small>
+              </span>
+              <span className="lead-score">{lead.score}</span>
+              <ChevronRight size={15} />
+            </button>
+          ))}
+        </section>
+      </div>
+      <div className="bottom-grid">
+        <section className="panel activity-panel">
+          <PanelHeading
+            title="Recent activity"
+            action="Audit trail"
+            onAction={() => setView("integrity")}
+          />
+          {[
+            [
+              "09:42",
+              "Evidence hash verified",
+              "FIR-1004.pdf · integrity ledger",
+              "green",
+            ],
+            ["09:18", "Entity resolved", "“Raju” → P001 Rahul Sharma", "blue"],
+            [
+              "Yesterday",
+              "New lead generated",
+              "Rahul ↔ Imran · predicted",
+              "purple",
+            ],
+          ].map(([time, title, sub, tone]) => (
+            <div className="activity-row" key={title}>
+              <span className={`activity-dot ${tone}`} />
+              <span className="activity-time">{time}</span>
+              <span>
+                <strong>{title}</strong>
+                <small>{sub}</small>
+              </span>
+            </div>
+          ))}
+        </section>
+        <section className="panel processing-panel">
+          <PanelHeading
+            title="Evidence pipeline"
+            action="Evidence inbox"
+            onAction={() => setView("evidence")}
+          />
+          <div className="pipeline">
+            <PipelineStep
+              icon={<FileText size={16} />}
+              label="Ingested"
+              value="08"
+              done
+            />
+            <PipelineStep
+              icon={<BrainCircuit size={16} />}
+              label="Extracted"
+              value={processed ? "08" : "06"}
+              done={processed}
+            />
+            <PipelineStep
+              icon={<GitBranch size={16} />}
+              label="Resolved"
+              value="12"
+              done
+            />
+            <PipelineStep
+              icon={<Network size={16} />}
+              label="In graph"
+              value="08"
+              done
+            />
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
 
-function PanelHeading({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) { return <div className="panel-heading"><h3>{title}</h3>{action && <button className="panel-action" onClick={onAction}>{action} <ArrowRight size={13} /></button>}</div> }
-function Metric({ label, value, detail, icon, tone }: { label: string; value: string; detail: string; icon: React.ReactNode; tone: string }) { return <div className="metric"><div className={`metric-icon ${tone}`}>{icon}</div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div> }
-function PipelineStep({ icon, label, value, done }: { icon: React.ReactNode; label: string; value: string; done?: boolean }) { return <div className={`pipeline-step ${done ? 'done' : ''}`}><span>{icon}</span><strong>{value}</strong><small>{label}</small></div> }
+function PanelHeading({
+  title,
+  action,
+  onAction,
+}: {
+  title: string;
+  action?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="panel-heading">
+      <h3>{title}</h3>
+      {action && (
+        <button className="panel-action" onClick={onAction}>
+          {action} <ArrowRight size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
+function Metric({
+  label,
+  value,
+  detail,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: React.ReactNode;
+  tone: string;
+}) {
+  return (
+    <div className="metric">
+      <div className={`metric-icon ${tone}`}>{icon}</div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </div>
+  );
+}
+function PipelineStep({
+  icon,
+  label,
+  value,
+  done,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  done?: boolean;
+}) {
+  return (
+    <div className={`pipeline-step ${done ? "done" : ""}`}>
+      <span>{icon}</span>
+      <strong>{value}</strong>
+      <small>{label}</small>
+    </div>
+  );
+}
 
-function Cases({ setView }: { setView: (v: View) => void }) { return <><PageTitle eyebrow="INVESTIGATIONS" title="Cases" copy="Manage access, scope and evidence across the investigation portfolio." action={<button className="primary-button" onClick={() => setView('evidence')}>Open active case <ArrowRight size={15} /></button>} /><div className="case-table panel"><div className="table-toolbar"><div className="filter-search"><Search size={15} /><span>Filter cases...</span></div><button className="filter-button"><SlidersHorizontal size={14} /> Filters</button></div><div className="table-head"><span>CASE</span><span>JURISDICTION</span><span>PRIORITY</span><span>STATUS</span><span>UPDATED</span><span /></div>{cases.map((item) => <button className="case-row" key={item.id} onClick={() => setView(item.id === 'CASE-1004' ? 'evidence' : 'network')}><span><strong>{item.id}</strong><small>{item.title}</small></span><span>{item.jurisdiction}</span><span className={`priority ${item.priority.toLowerCase()}`}>{item.priority}</span><span className={`case-status ${item.status.toLowerCase()}`}><i />{item.status}</span><span>{item.updated}</span><ChevronRight size={15} /></button>)}</div></> }
+function Cases({ setView }: { setView: (v: View) => void }) {
+  return (
+    <>
+      <PageTitle
+        eyebrow="INVESTIGATIONS"
+        title="Cases"
+        copy="Manage access, scope and evidence across the investigation portfolio."
+        action={
+          <button
+            className="primary-button"
+            onClick={() => setView("evidence")}
+          >
+            Open active case <ArrowRight size={15} />
+          </button>
+        }
+      />
+      <div className="case-table panel">
+        <div className="table-toolbar">
+          <div className="filter-search">
+            <Search size={15} />
+            <span>Filter cases...</span>
+          </div>
+          <button className="filter-button">
+            <SlidersHorizontal size={14} /> Filters
+          </button>
+        </div>
+        <div className="table-head">
+          <span>CASE</span>
+          <span>JURISDICTION</span>
+          <span>PRIORITY</span>
+          <span>STATUS</span>
+          <span>UPDATED</span>
+          <span />
+        </div>
+        {cases.map((item) => (
+          <button
+            className="case-row"
+            key={item.id}
+            onClick={() =>
+              setView(item.id === "CASE-1004" ? "evidence" : "network")
+            }
+          >
+            <span>
+              <strong>{item.id}</strong>
+              <small>{item.title}</small>
+            </span>
+            <span>{item.jurisdiction}</span>
+            <span className={`priority ${item.priority.toLowerCase()}`}>
+              {item.priority}
+            </span>
+            <span className={`case-status ${item.status.toLowerCase()}`}>
+              <i />
+              {item.status}
+            </span>
+            <span>{item.updated}</span>
+            <ChevronRight size={15} />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
 
 function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
-  const [items, setItems] = useState<Resource[]>(resources)
-  const [selected, setSelected] = useState<Resource>(resources[0])
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState('ALL')
-  const visible = items.filter((item) => (filter === 'ALL' || item.type === filter) && `${item.filename} ${item.title} ${item.caseId}`.toLowerCase().includes(query.toLowerCase()))
+  const [items, setItems] = useState<Resource[]>(resources);
+  const [selected, setSelected] = useState<Resource>(resources[0]);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("ALL");
+  const [resourceTab, setResourceTab] = useState("overview");
+  const visible = items.filter(
+    (item) =>
+      (filter === "ALL" || item.type === filter) &&
+      `${item.filename} ${item.title} ${item.caseId}`
+        .toLowerCase()
+        .includes(query.toLowerCase()),
+  );
   const addFile = (file: File) => {
-    const type = file.name.endsWith('.pdf') ? 'DOCUMENT' : file.name.endsWith('.csv') ? 'CSV' : file.name.endsWith('.json') ? 'OSINT' : 'TRANSCRIPT'
-    const resource: Resource = { id: `UPLOAD-${Date.now()}`, filename: file.name, type, title: file.name, caseId: 'CASE-1004', timestamp: 'Just now', excerpt: 'New resource uploaded for investigator review. Processing has not started.', hash: 'pending…', integrity: 'verified', size: `${Math.max(file.size / 1024, 1).toFixed(1)} KB`, status: 'ready', entities: 0, relationships: 0, addedBy: 'Ananya Mehta' }
-    setItems((current) => [resource, ...current]); setSelected(resource)
-  }
-  return <><PageTitle eyebrow="RESOURCE LIBRARY / CASE-1004" title="Explore your evidence" copy="Add source material, review extraction, and follow every resource into the knowledge graph." action={<label className="primary-button upload-label"><ArrowRight size={15} /> Add resource<input type="file" accept=".pdf,.csv,.json,.txt" onChange={(event) => { const file = event.target.files?.[0]; if (file) addFile(file) }} /></label>} /><div className="resource-layout"><section className="panel resource-table"><div className="resource-toolbar"><div className="filter-search"><Search size={15} /><input placeholder="Search files, cases, source IDs..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><div className="resource-filter"><button className={filter === 'ALL' ? 'active' : ''} onClick={() => setFilter('ALL')}>All</button>{['FIR', 'CDR', 'FINANCIAL', 'SURVEILLANCE', 'TRANSCRIPT'].map((type) => <button className={filter === type ? 'active' : ''} onClick={() => setFilter(type)} key={type}>{type}</button>)}</div></div><div className="resource-count"><strong>{visible.length}</strong> resources in workspace <span>· All source content is synthetic</span></div>{visible.map((item) => <button className={`resource-row ${selected.id === item.id ? 'selected' : ''}`} key={item.id} onClick={() => setSelected(item)}><span className={`resource-file ${item.type.toLowerCase()}`}><FileText size={16} /></span><span className="resource-main"><strong>{item.filename}</strong><small>{item.type} · {item.caseId} · {item.size}</small></span><span className="resource-stats"><strong>{item.entities}</strong><small>entities</small></span><span className="resource-stats"><strong>{item.relationships}</strong><small>edges</small></span><span className={`resource-status ${item.status}`}><i />{item.status}</span><ChevronRight size={14} /></button>)}</section><section className="panel resource-detail"><div className="resource-detail-head"><div><span className="eyebrow">RESOURCE DETAIL</span><h2>{selected.filename}</h2><p>{selected.type} · {selected.caseId} · Added by {selected.addedBy}</p></div><span className={`resource-status ${selected.status}`}><i />{selected.status}</span></div><div className="resource-tabs"><button className="active">Overview</button><button>Extracted intelligence</button><button>Graph impact</button><button>Integrity</button></div><div className="resource-preview"><div className="resource-preview-icon"><FileText size={24} /></div><span className="eyebrow">SOURCE CONTENT</span><h3>{selected.title}</h3><p>{selected.excerpt}</p><div className="resource-meta"><span><small>CASE</small><strong>{selected.caseId}</strong></span><span><small>ADDED</small><strong>{selected.timestamp}</strong></span><span><small>SIZE</small><strong>{selected.size}</strong></span></div></div><div className="resource-extraction"><div className="extraction-heading"><div><span className="eyebrow">GRAPH IMPACT</span><h3>{selected.entities ? `${selected.entities} entities · ${selected.relationships} relationships` : 'Ready for processing'}</h3></div><button className="secondary-button small" onClick={() => setView('network')}>Explore graph <Network size={14} /></button></div><div className="impact-list"><span><Check size={13} /> Source retained with provenance</span><span><Check size={13} /> Case scope: {selected.caseId}</span><span><Check size={13} /> SHA-256: {selected.hash}</span></div></div><div className="resource-callout"><ShieldCheck size={16} /><span><strong>Evidence remains authoritative.</strong> Extracted relationships will be marked as observed or corroborated only after source review. Predicted leads are kept separate.</span></div></section></div></>
+    const type = file.name.endsWith(".pdf")
+      ? "DOCUMENT"
+      : file.name.endsWith(".csv")
+        ? "CSV"
+        : file.name.endsWith(".json")
+          ? "OSINT"
+          : "TRANSCRIPT";
+    const resource: Resource = {
+      id: `UPLOAD-${Date.now()}`,
+      filename: file.name,
+      type,
+      title: file.name,
+      caseId: "CASE-1004",
+      timestamp: "Just now",
+      excerpt:
+        "New resource uploaded for investigator review. Processing has not started.",
+      hash: "pending…",
+      integrity: "verified",
+      size: `${Math.max(file.size / 1024, 1).toFixed(1)} KB`,
+      status: "ready",
+      entities: 0,
+      relationships: 0,
+      addedBy: "Ananya Mehta",
+    };
+    setItems((current) => [resource, ...current]);
+    setSelected(resource);
+  };
+  return (
+    <>
+      <PageTitle
+        eyebrow="RESOURCE LIBRARY / CASE-1004"
+        title="Explore your evidence"
+        copy="Add source material, review extraction, and follow every resource into the knowledge graph."
+        action={
+          <label className="primary-button upload-label">
+            <ArrowRight size={15} /> Add resource
+            <input
+              type="file"
+              accept=".pdf,.csv,.json,.txt"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) addFile(file);
+              }}
+            />
+          </label>
+        }
+      />
+      <div className="resource-layout">
+        <section className="panel resource-table">
+          <div className="resource-toolbar">
+            <div className="filter-search">
+              <Search size={15} />
+              <input
+                placeholder="Search files, cases, source IDs..."
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <div className="resource-filter">
+              <button
+                className={filter === "ALL" ? "active" : ""}
+                onClick={() => setFilter("ALL")}
+              >
+                All
+              </button>
+              {["FIR", "CDR", "FINANCIAL", "SURVEILLANCE", "TRANSCRIPT"].map(
+                (type) => (
+                  <button
+                    className={filter === type ? "active" : ""}
+                    onClick={() => setFilter(type)}
+                    key={type}
+                  >
+                    {type}
+                  </button>
+                ),
+              )}
+            </div>
+          </div>
+          <div className="resource-count">
+            <strong>{visible.length}</strong> resources in workspace{" "}
+            <span>· All source content is synthetic</span>
+          </div>
+          {visible.map((item) => (
+            <button
+              className={`resource-row ${selected.id === item.id ? "selected" : ""}`}
+              key={item.id}
+              onClick={() => setSelected(item)}
+            >
+              <span className={`resource-file ${item.type.toLowerCase()}`}>
+                <FileText size={16} />
+              </span>
+              <span className="resource-main">
+                <strong>{item.filename}</strong>
+                <small>
+                  {item.type} · {item.caseId} · {item.size}
+                </small>
+              </span>
+              <span className="resource-stats">
+                <strong>{item.entities}</strong>
+                <small>entities</small>
+              </span>
+              <span className="resource-stats">
+                <strong>{item.relationships}</strong>
+                <small>edges</small>
+              </span>
+              <span className={`resource-status ${item.status}`}>
+                <i />
+                {item.status}
+              </span>
+              <ChevronRight size={14} />
+            </button>
+          ))}
+        </section>
+        <section className="panel resource-detail">
+          <div className="resource-detail-head">
+            <div>
+              <span className="eyebrow">RESOURCE DETAIL</span>
+              <h2>{selected.filename}</h2>
+              <p>
+                {selected.type} · {selected.caseId} · Added by{" "}
+                {selected.addedBy}
+              </p>
+            </div>
+            <span className={`resource-status ${selected.status}`}>
+              <i />
+              {selected.status}
+            </span>
+          </div>
+          <div className="resource-tabs">
+            {[
+              ["overview", "Overview"],
+              ["extracted", "Extracted intelligence"],
+              ["graph", "Graph impact"],
+              ["integrity", "Integrity"],
+            ].map(([id, label]) => (
+              <button className={resourceTab === id ? "active" : ""} key={id} onClick={() => setResourceTab(id)}>{label}</button>
+            ))}
+          </div>
+          <div className="resource-tab-summary">
+            {resourceTab === "overview" && <><strong>Source overview</strong><span>Review the original resource, case scope, and ingestion metadata.</span></>}
+            {resourceTab === "extracted" && <><strong>Extracted intelligence</strong><span>{selected.entities || "No"} entities and {selected.relationships || "no"} relationships are available for investigator review.</span></>}
+            {resourceTab === "graph" && <><strong>Graph impact</strong><span>This resource can be traced to every entity and relationship it supports.</span><button className="text-button" onClick={() => setView("network")}>Open graph <ArrowRight size={13} /></button></>}
+            {resourceTab === "integrity" && <><strong>Integrity record</strong><span>SHA-256 {selected.hash} · {selected.integrity === "verified" ? "Verified against ledger" : "Integrity mismatch"}</span></>}
+          </div>
+          <div className="resource-preview">
+            <div className="resource-preview-icon">
+              <FileText size={24} />
+            </div>
+            <span className="eyebrow">SOURCE CONTENT</span>
+            <h3>{selected.title}</h3>
+            <p>{selected.excerpt}</p>
+            <div className="resource-meta">
+              <span>
+                <small>CASE</small>
+                <strong>{selected.caseId}</strong>
+              </span>
+              <span>
+                <small>ADDED</small>
+                <strong>{selected.timestamp}</strong>
+              </span>
+              <span>
+                <small>SIZE</small>
+                <strong>{selected.size}</strong>
+              </span>
+            </div>
+          </div>
+          <div className="resource-extraction">
+            <div className="extraction-heading">
+              <div>
+                <span className="eyebrow">GRAPH IMPACT</span>
+                <h3>
+                  {selected.entities
+                    ? `${selected.entities} entities · ${selected.relationships} relationships`
+                    : "Ready for processing"}
+                </h3>
+              </div>
+              <button
+                className="secondary-button small"
+                onClick={() => setView("network")}
+              >
+                Explore graph <Network size={14} />
+              </button>
+            </div>
+            <div className="impact-list">
+              <span>
+                <Check size={13} /> Source retained with provenance
+              </span>
+              <span>
+                <Check size={13} /> Case scope: {selected.caseId}
+              </span>
+              <span>
+                <Check size={13} /> SHA-256: {selected.hash}
+              </span>
+            </div>
+          </div>
+          <div className="resource-callout">
+            <ShieldCheck size={16} />
+            <span>
+              <strong>Evidence remains authoritative.</strong> Extracted
+              relationships will be marked as observed or corroborated only
+              after source review. Predicted leads are kept separate.
+            </span>
+          </div>
+        </section>
+      </div>
+    </>
+  );
 }
 
-function EvidenceInbox({ processed, setProcessed }: { processed: boolean; setProcessed: (v: boolean) => void }) { return <><PageTitle eyebrow="CASE-1004 / EVIDENCE INBOX" title="Evidence workspace" copy="Process source records, preserve provenance, and review extracted intelligence." action={<button className="secondary-button"><UploadIcon /> Add evidence</button>} /><div className="evidence-layout"><section className="panel evidence-list"><div className="evidence-toolbar"><div><strong>08</strong><span>records in scope</span></div><button className="filter-button"><SlidersHorizontal size={14} /> Source type</button></div>{evidence.map((item, index) => <button className={`evidence-row ${item.id === 'FIR-1004' ? 'selected' : ''}`} key={item.id}><span className={`source-icon ${item.type.toLowerCase().replace(' ', '-')}`}><FileText size={16} /></span><span><strong>{item.title}</strong><small>{item.type} · {item.timestamp}</small></span>{item.integrity === 'mismatch' ? <CircleAlert className="integrity-alert" size={15} /> : <Check className="verified" size={15} />}{index < 5 && <span className="processed-label">processed</span>}</button>)}</section><section className="panel evidence-preview"><div className="preview-top"><div><span className="eyebrow">SELECTED SOURCE · FIR</span><h2>FIR-1004.pdf</h2></div><span className="verified-label"><Check size={13} /> Hash verified</span></div><div className="document-preview"><div className="document-head"><span>FIRST INFORMATION REPORT</span><small>FIR-1004 · CASE-1004</small></div><div className="document-lines"><h3>Incident report — Cafe Meridian</h3><p>On 20 August 2026, information was received regarding an incident at Cafe Meridian, Delhi.</p><p>Persons identified in the source context include <mark>Rahul Sharma</mark>, <mark>Vikram Malhotra</mark> and <mark>Rakesh Yadav</mark>. The related vehicle registry entry <mark>UP14EF9090</mark> is referenced in the scene notes.</p><p className="document-fade">Source record continues with incident metadata and officer observations…</p></div><div className="document-stamp">SYNTHETIC<br />DEMO</div></div><div className="extraction-result"><div className="extraction-heading"><div><span className="eyebrow">EXTRACTION RESULT</span><h3>{processed ? 'Entities resolved into graph' : 'Ready for processing'}</h3></div><button className="primary-button small" onClick={() => setProcessed(true)}>{processed ? 'Processed' : 'Process evidence'} <BrainCircuit size={14} /></button></div><div className="entity-chips"><span className="entity-chip person"><UserRound size={13} /> Rahul Sharma <small>P001</small></span><span className="entity-chip person"><UserRound size={13} /> Vikram Malhotra <small>P003</small></span><span className="entity-chip person"><UserRound size={13} /> Rakesh Yadav <small>P004</small></span><span className="entity-chip location"><Globe2 size={13} /> Cafe Meridian <small>L003</small></span></div><div className="resolution-callout"><GitBranch size={15} /><span><strong>Entity resolution applied</strong> “Raju” and “Vicky” matched to canonical records P001 and P003. Original mentions remain attached to this source.</span></div></div></section></div></> }
-function UploadIcon() { return <ArrowRight size={15} /> }
+function EvidenceInbox({
+  processed,
+  setProcessed,
+}: {
+  processed: boolean;
+  setProcessed: (v: boolean) => void;
+}) {
+  return (
+    <>
+      <PageTitle
+        eyebrow="CASE-1004 / EVIDENCE INBOX"
+        title="Evidence workspace"
+        copy="Process source records, preserve provenance, and review extracted intelligence."
+        action={
+          <button className="secondary-button">
+            <UploadIcon /> Add evidence
+          </button>
+        }
+      />
+      <div className="evidence-layout">
+        <section className="panel evidence-list">
+          <div className="evidence-toolbar">
+            <div>
+              <strong>08</strong>
+              <span>records in scope</span>
+            </div>
+            <button className="filter-button">
+              <SlidersHorizontal size={14} /> Source type
+            </button>
+          </div>
+          {evidence.map((item, index) => (
+            <button
+              className={`evidence-row ${item.id === "FIR-1004" ? "selected" : ""}`}
+              key={item.id}
+            >
+              <span
+                className={`source-icon ${item.type.toLowerCase().replace(" ", "-")}`}
+              >
+                <FileText size={16} />
+              </span>
+              <span>
+                <strong>{item.title}</strong>
+                <small>
+                  {item.type} · {item.timestamp}
+                </small>
+              </span>
+              {item.integrity === "mismatch" ? (
+                <CircleAlert className="integrity-alert" size={15} />
+              ) : (
+                <Check className="verified" size={15} />
+              )}
+              {index < 5 && <span className="processed-label">processed</span>}
+            </button>
+          ))}
+        </section>
+        <section className="panel evidence-preview">
+          <div className="preview-top">
+            <div>
+              <span className="eyebrow">SELECTED SOURCE · FIR</span>
+              <h2>FIR-1004.pdf</h2>
+            </div>
+            <span className="verified-label">
+              <Check size={13} /> Hash verified
+            </span>
+          </div>
+          <div className="document-preview">
+            <div className="document-head">
+              <span>FIRST INFORMATION REPORT</span>
+              <small>FIR-1004 · CASE-1004</small>
+            </div>
+            <div className="document-lines">
+              <h3>Incident report — Cafe Meridian</h3>
+              <p>
+                On 20 August 2026, information was received regarding an
+                incident at Cafe Meridian, Delhi.
+              </p>
+              <p>
+                Persons identified in the source context include{" "}
+                <mark>Rahul Sharma</mark>, <mark>Vikram Malhotra</mark> and{" "}
+                <mark>Rakesh Yadav</mark>. The related vehicle registry entry{" "}
+                <mark>UP14EF9090</mark> is referenced in the scene notes.
+              </p>
+              <p className="document-fade">
+                Source record continues with incident metadata and officer
+                observations…
+              </p>
+            </div>
+            <div className="document-stamp">
+              SYNTHETIC
+              <br />
+              DEMO
+            </div>
+          </div>
+          <div className="extraction-result">
+            <div className="extraction-heading">
+              <div>
+                <span className="eyebrow">EXTRACTION RESULT</span>
+                <h3>
+                  {processed
+                    ? "Entities resolved into graph"
+                    : "Ready for processing"}
+                </h3>
+              </div>
+              <button
+                className="primary-button small"
+                onClick={() => setProcessed(true)}
+              >
+                {processed ? "Processed" : "Process evidence"}{" "}
+                <BrainCircuit size={14} />
+              </button>
+            </div>
+            <div className="entity-chips">
+              <span className="entity-chip person">
+                <UserRound size={13} /> Rahul Sharma <small>P001</small>
+              </span>
+              <span className="entity-chip person">
+                <UserRound size={13} /> Vikram Malhotra <small>P003</small>
+              </span>
+              <span className="entity-chip person">
+                <UserRound size={13} /> Rakesh Yadav <small>P004</small>
+              </span>
+              <span className="entity-chip location">
+                <Globe2 size={13} /> Cafe Meridian <small>L003</small>
+              </span>
+            </div>
+            <div className="resolution-callout">
+              <GitBranch size={15} />
+              <span>
+                <strong>Entity resolution applied</strong> “Raju” and “Vicky”
+                matched to canonical records P001 and P003. Original mentions
+                remain attached to this source.
+              </span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+function UploadIcon() {
+  return <ArrowRight size={15} />;
+}
 
-function NetworkView({ selectedEntity, setSelectedEntity, selectedEdge, setSelectedEdge }: { selectedEntity: string; setSelectedEntity: (id: string) => void; selectedEdge: string; setSelectedEdge: (id: string) => void }) { return <><PageTitle eyebrow="NETWORK ANALYSIS / CASE-1004" title="Evidence network" copy="Explore relationships across cases, sources and time. Predicted links remain visibly separate from observed evidence." action={<div className="network-actions"><button className="filter-button"><SlidersHorizontal size={14} /> Filters</button><button className="secondary-button"><Network size={15} /> Expand 2 hops</button></div>} /><div className="network-toolbar"><div className="network-tabs"><button className="active">Network</button><button>Communities</button><button>Path explorer</button></div><div className="network-search"><Search size={14} /> <span>Search graph</span></div><span className="network-count">12 entities · 8 relationships</span></div><div className="network-layout"><section className="panel graph-panel"><GraphScene focusId={selectedEntity} onSelect={setSelectedEntity} /><div className="graph-stats"><span><strong>08</strong> relationships</span><span><strong>03</strong> communities</span><span><strong>04</strong> sources corroborating</span></div></section><section className="panel entity-panel"><span className="eyebrow">SELECTED ENTITY</span><div className="entity-profile"><div className="large-avatar">VM</div><div><h2>{entityById(selectedEntity)?.name}</h2><span>{entityById(selectedEntity)?.id} · {entityById(selectedEntity)?.role}</span></div></div><div className="profile-stats"><div><strong>{selectedEntity === 'P003' ? '05' : '03'}</strong><small>connections</small></div><div><strong>{selectedEntity === 'P003' ? '04' : '02'}</strong><small>case contexts</small></div><div><strong>{selectedEntity === 'P003' ? '0.91' : '0.84'}</strong><small>bridge score</small></div></div><div className="connected-heading"><h3>Connected entities</h3><span>Click to focus</span></div>{relationships.filter((item) => item.source === selectedEntity || item.target === selectedEntity).map((item) => { const other = item.source === selectedEntity ? item.target : item.source; return <button className="connected-row" key={item.id} onClick={() => { setSelectedEntity(other); setSelectedEdge(item.id) }}><span className={`mini-dot ${item.status}`} /><span><strong>{entityById(other)?.name}</strong><small>{item.type.replaceAll('_', ' ')}</small></span><b>{Math.round(item.confidence * 100)}%</b></button> })}</section></div></> }
+function NetworkView({
+  selectedEntity,
+  setSelectedEntity,
+  selectedEdge,
+  setSelectedEdge,
+}: {
+  selectedEntity: string;
+  setSelectedEntity: (id: string) => void;
+  selectedEdge: string;
+  setSelectedEdge: (id: string) => void;
+}) {
+  const [networkMode, setNetworkMode] = useState("network");
+  return (
+    <>
+      <PageTitle
+        eyebrow="NETWORK ANALYSIS / CASE-1004"
+        title="Neo4j knowledge graph"
+        copy="Explore the evidence graph built from people, phones, vehicles, accounts, locations, cases, and source records."
+        action={
+          <div className="network-actions">
+            <button className="filter-button">
+              <SlidersHorizontal size={14} /> Filters
+            </button>
+            <button className="secondary-button">
+              <Network size={15} /> Expand 2 hops
+            </button>
+          </div>
+        }
+      />
+      <div className="network-toolbar">
+        <div className="network-tabs">
+          <button className={networkMode === "network" ? "active" : ""} onClick={() => setNetworkMode("network")}>Network</button>
+          <button className={networkMode === "communities" ? "active" : ""} onClick={() => setNetworkMode("communities")}>Communities</button>
+          <button className={networkMode === "path" ? "active" : ""} onClick={() => setNetworkMode("path")}>Path explorer</button>
+        </div>
+        <div className="network-search">
+          <Search size={14} /> <span>Search graph</span>
+        </div>
+        <span className="network-count">Live graph view · Neo4j source</span>
+      </div>
+      <div className="network-mode-summary">
+        {networkMode === "network" && <><strong>Evidence relationship view</strong><span>Showing source-aware entities and relationships from the selected investigation scope.</span></>}
+        {networkMode === "communities" && <><strong>Community view</strong><span>Clusters are grouped by connected evidence and jurisdiction. Select a node to inspect its supporting records.</span></>}
+        {networkMode === "path" && <><strong>Path explorer</strong><span>Selected focus: {entityById(selectedEntity)?.name || selectedEntity}. Click another node to compare its strongest connected path.</span></>}
+      </div>
+      <div className="graph-source-note">
+        <span className="graph-source-indicator" />
+        <span><strong>Knowledge graph</strong> Every node and relationship is linked back to source evidence.</span>
+        <span className="graph-source-note-meta">Drag nodes · click a node to inspect</span>
+      </div>
+      <div className="network-layout">
+        <section className="panel graph-panel">
+          <GraphScene focusId={selectedEntity} onSelect={setSelectedEntity} />
+          <div className="graph-stats">
+            <span>
+              <strong>08</strong> relationships
+            </span>
+            <span>
+              <strong>03</strong> communities
+            </span>
+            <span>
+              <strong>04</strong> sources corroborating
+            </span>
+          </div>
+        </section>
+        <section className="panel entity-panel">
+          <span className="eyebrow">SELECTED ENTITY</span>
+          <div className="entity-profile">
+            <div className="large-avatar">VM</div>
+            <div>
+              <h2>{entityById(selectedEntity)?.name}</h2>
+              <span>
+                {entityById(selectedEntity)?.id} ·{" "}
+                {entityById(selectedEntity)?.role}
+              </span>
+            </div>
+          </div>
+          <div className="profile-stats">
+            <div>
+              <strong>{selectedEntity === "P003" ? "05" : "03"}</strong>
+              <small>connections</small>
+            </div>
+            <div>
+              <strong>{selectedEntity === "P003" ? "04" : "02"}</strong>
+              <small>case contexts</small>
+            </div>
+            <div>
+              <strong>{selectedEntity === "P003" ? "0.91" : "0.84"}</strong>
+              <small>bridge score</small>
+            </div>
+          </div>
+          <div className="connected-heading">
+            <h3>Connected entities</h3>
+            <span>Click to focus</span>
+          </div>
+          {relationships
+            .filter(
+              (item) =>
+                item.source === selectedEntity ||
+                item.target === selectedEntity,
+            )
+            .map((item) => {
+              const other =
+                item.source === selectedEntity ? item.target : item.source;
+              return (
+                <button
+                  className="connected-row"
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedEntity(other);
+                    setSelectedEdge(item.id);
+                  }}
+                >
+                  <span className={`mini-dot ${item.status}`} />
+                  <span>
+                    <strong>{entityById(other)?.name}</strong>
+                    <small>{item.type.replaceAll("_", " ")}</small>
+                  </span>
+                  <b>{Math.round(item.confidence * 100)}%</b>
+                </button>
+              );
+            })}
+        </section>
+      </div>
+    </>
+  );
+}
 
-function Intelligence({ setSelectedEntity, setView }: { setSelectedEntity: (id: string) => void; setView: (v: View) => void }) { return <><PageTitle eyebrow="INTELLIGENCE / EXPLAINABLE LEADS" title="What deserves attention" copy="Prioritised analytical signals, with the evidence and reasoning kept visible." action={<button className="secondary-button"><Sparkles size={15} /> Run analysis</button>} /><div className="intelligence-grid"><section className="panel lead-list-panel"><PanelHeading title="Priority entities" action="Network view" onAction={() => setView('network')} />{leads.map((lead) => <button className="intelligence-lead" key={lead.id} onClick={() => { setSelectedEntity(lead.id); setView('network') }}><span className="lead-number">{lead.rank}</span><span className="intelligence-lead-main"><span className="eyebrow">{lead.label}</span><h2>{lead.name}</h2><p>{lead.reason}</p><div className="signal-tags">{lead.signals.map((signal) => <span key={signal}><Check size={12} /> {signal}</span>)}</div></span><span className="big-score">{lead.score}<small>priority score</small></span><ChevronRight size={17} /></button>)}</section><section className="panel patterns-panel"><PanelHeading title="Pattern detection" action="All patterns" /><p className="panel-intro">Rule-based signals found across the current evidence scope.</p>{patterns.map((pattern) => <div className="pattern-row" key={pattern.title}><span className={`pattern-icon ${pattern.color}`}><Activity size={15} /></span><span><strong>{pattern.title}</strong><small>{pattern.entity}</small><p>{pattern.detail}</p><em>{pattern.evidence}</em></span><span className={`severity ${pattern.severity.toLowerCase()}`}>{pattern.severity}</span></div>)}</section></div><section className="potential-lead panel"><div className="potential-icon"><GitBranch size={20} /></div><div><span className="eyebrow">PREDICTED / POTENTIAL ASSOCIATION</span><h2>Rahul Sharma <span>· · ·</span> Imran Ali</h2><p>Score <b>74%</b> · Common intermediary: Vikram · Connected cases · Temporal overlap</p></div><div className="potential-note"><CircleAlert size={15} /> No direct evidence currently proves this edge.</div><button className="text-button" onClick={() => setView('network')}>Inspect lead <ArrowRight size={14} /></button></section></> }
+function Intelligence({
+  setSelectedEntity,
+  setView,
+}: {
+  setSelectedEntity: (id: string) => void;
+  setView: (v: View) => void;
+}) {
+  return (
+    <>
+      <PageTitle
+        eyebrow="INTELLIGENCE / EXPLAINABLE LEADS"
+        title="What deserves attention"
+        copy="Prioritised analytical signals, with the evidence and reasoning kept visible."
+        action={
+          <button className="secondary-button">
+            <Sparkles size={15} /> Run analysis
+          </button>
+        }
+      />
+      <div className="intelligence-grid">
+        <section className="panel lead-list-panel">
+          <PanelHeading
+            title="Priority entities"
+            action="Network view"
+            onAction={() => setView("network")}
+          />
+          {leads.map((lead) => (
+            <button
+              className="intelligence-lead"
+              key={lead.id}
+              onClick={() => {
+                setSelectedEntity(lead.id);
+                setView("network");
+              }}
+            >
+              <span className="lead-number">{lead.rank}</span>
+              <span className="intelligence-lead-main">
+                <span className="eyebrow">{lead.label}</span>
+                <h2>{lead.name}</h2>
+                <p>{lead.reason}</p>
+                <div className="signal-tags">
+                  {lead.signals.map((signal) => (
+                    <span key={signal}>
+                      <Check size={12} /> {signal}
+                    </span>
+                  ))}
+                </div>
+              </span>
+              <span className="big-score">
+                {lead.score}
+                <small>priority score</small>
+              </span>
+              <ChevronRight size={17} />
+            </button>
+          ))}
+        </section>
+        <section className="panel patterns-panel">
+          <PanelHeading title="Pattern detection" action="All patterns" />
+          <p className="panel-intro">
+            Rule-based signals found across the current evidence scope.
+          </p>
+          {patterns.map((pattern) => (
+            <div className="pattern-row" key={pattern.title}>
+              <span className={`pattern-icon ${pattern.color}`}>
+                <Activity size={15} />
+              </span>
+              <span>
+                <strong>{pattern.title}</strong>
+                <small>{pattern.entity}</small>
+                <p>{pattern.detail}</p>
+                <em>{pattern.evidence}</em>
+              </span>
+              <span className={`severity ${pattern.severity.toLowerCase()}`}>
+                {pattern.severity}
+              </span>
+            </div>
+          ))}
+        </section>
+      </div>
+      <section className="potential-lead panel">
+        <div className="potential-icon">
+          <GitBranch size={20} />
+        </div>
+        <div>
+          <span className="eyebrow">PREDICTED / POTENTIAL ASSOCIATION</span>
+          <h2>
+            Rahul Sharma <span>· · ·</span> Imran Ali
+          </h2>
+          <p>
+            Score <b>74%</b> · Common intermediary: Vikram · Connected cases ·
+            Temporal overlap
+          </p>
+        </div>
+        <div className="potential-note">
+          <CircleAlert size={15} /> No direct evidence currently proves this
+          edge.
+        </div>
+        <button className="text-button" onClick={() => setView("network")}>
+          Inspect lead <ArrowRight size={14} />
+        </button>
+      </section>
+    </>
+  );
+}
 
-function Timeline() { return <><PageTitle eyebrow="TEMPORAL ANALYSIS / CASE-1004" title="Investigation timeline" copy="Events are ordered from source timestamps. Use time to test convergence, sequence and overlap." action={<button className="filter-button"><SlidersHorizontal size={14} /> Filter dates</button>} /><div className="timeline-summary"><div><span className="eyebrow">WINDOW</span><strong>01–26 AUG 2026</strong></div><div><span className="eyebrow">EVENTS</span><strong>08</strong></div><div><span className="eyebrow">SOURCE TYPES</span><strong>05</strong></div><div className="timeline-legend"><span><i className="dot blue" />Source event</span><span><i className="dot orange" />Case milestone</span></div></div><div className="panel timeline-panel"><div className="timeline-axis"><span>01 AUG</span><span>08 AUG</span><span>15 AUG</span><span>22 AUG</span><span>26 AUG</span></div><div className="timeline-line" />{timeline.map(([date, time, place, title, type], index) => <div className={`timeline-event ${type === 'INCIDENT' ? 'milestone' : ''}`} style={{ marginLeft: `${index * 9 + 4}%` }} key={title}><span className="timeline-marker" /><div className="timeline-card"><span className="eyebrow">{date} · {time} · {type}</span><strong>{title}</strong><small>{place}</small></div></div>)}</div></> }
+function Timeline() {
+  return (
+    <>
+      <PageTitle
+        eyebrow="TEMPORAL ANALYSIS / CASE-1004"
+        title="Investigation timeline"
+        copy="Events are ordered from source timestamps. Use time to test convergence, sequence and overlap."
+        action={
+          <button className="filter-button">
+            <SlidersHorizontal size={14} /> Filter dates
+          </button>
+        }
+      />
+      <div className="timeline-summary">
+        <div>
+          <span className="eyebrow">WINDOW</span>
+          <strong>01–26 AUG 2026</strong>
+        </div>
+        <div>
+          <span className="eyebrow">EVENTS</span>
+          <strong>08</strong>
+        </div>
+        <div>
+          <span className="eyebrow">SOURCE TYPES</span>
+          <strong>05</strong>
+        </div>
+        <div className="timeline-legend">
+          <span>
+            <i className="dot blue" />
+            Source event
+          </span>
+          <span>
+            <i className="dot orange" />
+            Case milestone
+          </span>
+        </div>
+      </div>
+      <div className="panel timeline-panel">
+        <div className="timeline-axis">
+          <span>01 AUG</span>
+          <span>08 AUG</span>
+          <span>15 AUG</span>
+          <span>22 AUG</span>
+          <span>26 AUG</span>
+        </div>
+        <div className="timeline-line" />
+        {timeline.map(([date, time, place, title, type], index) => (
+          <div
+            className={`timeline-event ${type === "INCIDENT" ? "milestone" : ""}`}
+            style={{ marginLeft: `${index * 9 + 4}%` }}
+            key={title}
+          >
+            <span className="timeline-marker" />
+            <div className="timeline-card">
+              <span className="eyebrow">
+                {date} · {time} · {type}
+              </span>
+              <strong>{title}</strong>
+              <small>{place}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
 
-function Integrity() { return <><PageTitle eyebrow="CONTROL PLANE / PROVENANCE" title="Trust, access and audit" copy="Security controls are visible at the point where investigative work happens." action={<button className="secondary-button"><LockKeyhole size={15} /> Access policy</button>} /><div className="integrity-grid"><section className="panel ledger-panel"><PanelHeading title="Evidence integrity ledger" action="Verify all" /><div className="ledger-intro"><div className="ledger-check"><ShieldCheck size={20} /></div><div><strong>7 of 8 records verified</strong><p>Hashes are compared against the prototype permissioned-ledger record. Sensitive evidence stays off-chain.</p></div></div>{evidence.slice(0, 6).map((item) => <div className="ledger-row" key={item.id}><span className={item.integrity === 'verified' ? 'ledger-ok' : 'ledger-bad'}>{item.integrity === 'verified' ? <Check size={14} /> : <CircleAlert size={14} />}</span><span><strong>{item.id}</strong><small>{item.hash} · encrypted off-chain</small></span><b>{item.integrity === 'verified' ? 'VERIFIED' : 'MISMATCH'}</b></div>)}</section><section className="panel access-panel"><PanelHeading title="Role-based access" action="Manage roles" /><div className="current-role"><div className="avatar">AM</div><span><strong>Ananya Mehta</strong><small>Lead investigator · MFA verified</small></span><span className="role-badge">INVESTIGATOR</span></div>{[['CASE-1004', 'Full access', true], ['CASE-1003', 'Full access', true], ['CASE-1002', 'Read only', true], ['CASE-2001', 'Denied by policy', false]].map(([id, label, allowed]) => <div className="access-row" key={String(id)}><span className={allowed ? 'access-yes' : 'access-no'}>{allowed ? <Check size={13} /> : <X size={13} />}</span><strong>{id}</strong><small>{label}</small></div>)}<div className="rbac-note"><KeyRound size={15} /><span>Least privilege is enforced at case level. Every access and export is written to the audit trail.</span></div></section></div><section className="panel audit-panel"><PanelHeading title="Recent audit trail" action="Export log" />{[['09:42', 'Hash verification completed', 'FIR-1004.pdf · VERIFIED', 'Ananya Mehta'], ['09:18', 'Entity resolution accepted', 'Raju → P001 · canonical mapping', 'Ananya Mehta'], ['Yesterday', 'Access request denied', 'CASE-2001 · outside assigned scope', 'Policy engine'], ['04 Sep', 'Evidence package ingested', '8 records · CASE-1004', 'Forensic analyst']].map(([time, title, detail, actor]) => <div className="audit-row" key={title}><span>{time}</span><span><strong>{title}</strong><small>{detail}</small></span><small>{actor}</small><ChevronRight size={14} /></div>)}</section></> }
+function Integrity() {
+  return (
+    <>
+      <PageTitle
+        eyebrow="CONTROL PLANE / PROVENANCE"
+        title="Trust, access and audit"
+        copy="Security controls are visible at the point where investigative work happens."
+        action={
+          <button className="secondary-button">
+            <LockKeyhole size={15} /> Access policy
+          </button>
+        }
+      />
+      <div className="integrity-grid">
+        <section className="panel ledger-panel">
+          <PanelHeading title="Evidence integrity ledger" action="Verify all" />
+          <div className="ledger-intro">
+            <div className="ledger-check">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <strong>7 of 8 records verified</strong>
+              <p>
+                Hashes are compared against the prototype permissioned-ledger
+                record. Sensitive evidence stays off-chain.
+              </p>
+            </div>
+          </div>
+          {evidence.slice(0, 6).map((item) => (
+            <div className="ledger-row" key={item.id}>
+              <span
+                className={
+                  item.integrity === "verified" ? "ledger-ok" : "ledger-bad"
+                }
+              >
+                {item.integrity === "verified" ? (
+                  <Check size={14} />
+                ) : (
+                  <CircleAlert size={14} />
+                )}
+              </span>
+              <span>
+                <strong>{item.id}</strong>
+                <small>{item.hash} · encrypted off-chain</small>
+              </span>
+              <b>{item.integrity === "verified" ? "VERIFIED" : "MISMATCH"}</b>
+            </div>
+          ))}
+        </section>
+        <section className="panel access-panel">
+          <PanelHeading title="Role-based access" action="Manage roles" />
+          <div className="current-role">
+            <div className="avatar">AM</div>
+            <span>
+              <strong>Ananya Mehta</strong>
+              <small>Lead investigator · MFA verified</small>
+            </span>
+            <span className="role-badge">INVESTIGATOR</span>
+          </div>
+          {[
+            ["CASE-1004", "Full access", true],
+            ["CASE-1003", "Full access", true],
+            ["CASE-1002", "Read only", true],
+            ["CASE-2001", "Denied by policy", false],
+          ].map(([id, label, allowed]) => (
+            <div className="access-row" key={String(id)}>
+              <span className={allowed ? "access-yes" : "access-no"}>
+                {allowed ? <Check size={13} /> : <X size={13} />}
+              </span>
+              <strong>{id}</strong>
+              <small>{label}</small>
+            </div>
+          ))}
+          <div className="rbac-note">
+            <KeyRound size={15} />
+            <span>
+              Least privilege is enforced at case level. Every access and export
+              is written to the audit trail.
+            </span>
+          </div>
+        </section>
+      </div>
+      <section className="panel audit-panel">
+        <PanelHeading title="Recent audit trail" action="Export log" />
+        {[
+          [
+            "09:42",
+            "Hash verification completed",
+            "FIR-1004.pdf · VERIFIED",
+            "Ananya Mehta",
+          ],
+          [
+            "09:18",
+            "Entity resolution accepted",
+            "Raju → P001 · canonical mapping",
+            "Ananya Mehta",
+          ],
+          [
+            "Yesterday",
+            "Access request denied",
+            "CASE-2001 · outside assigned scope",
+            "Policy engine",
+          ],
+          [
+            "04 Sep",
+            "Evidence package ingested",
+            "8 records · CASE-1004",
+            "Forensic analyst",
+          ],
+        ].map(([time, title, detail, actor]) => (
+          <div className="audit-row" key={title}>
+            <span>{time}</span>
+            <span>
+              <strong>{title}</strong>
+              <small>{detail}</small>
+            </span>
+            <small>{actor}</small>
+            <ChevronRight size={14} />
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
 
-export default App
+export default App;

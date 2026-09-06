@@ -1,0 +1,6 @@
+.hero-foot{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:0;width:min(100%,680px);align-items:start}
+.hero-foot div{display:grid;grid-template-columns:58px minmax(0,1fr);gap:10px;align-items:start;min-height:42px}
+.hero-foot strong{display:block;min-width:0;line-height:1.1;white-space:nowrap}
+.hero-foot span{display:block;max-width:105px;line-height:1.35}
+.landing-footer{position:relative;left:auto;right:auto;bottom:auto;margin:52px 6.5% 24px}
+@media(max-width:680px){.hero-foot{grid-template-columns:1fr;gap:14px;width:100%;margin-top:65px}.hero-foot div{grid-template-columns:58px 1fr;min-height:0}.hero-foot span{max-width:none}}

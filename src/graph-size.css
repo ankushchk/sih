@@ -1,0 +1,9 @@
+.main-shell{min-width:0}
+.content-scroll:has(.network-layout){padding:24px 24px 30px}
+.network-layout{grid-template-columns:minmax(0,1fr);gap:16px}
+.network-layout .entity-panel{display:none}
+.graph-panel{min-height:calc(100vh - 245px)}
+.graph-canvas,.vis-graph-canvas{height:calc(100vh - 270px);min-height:680px}
+.detail-drawer{position:fixed;z-index:20;right:0;top:68px;bottom:0;width:340px;overflow:auto;box-shadow:-10px 0 24px #0005}
+@media(max-width:1100px){.graph-canvas,.vis-graph-canvas{height:calc(100vh - 275px);min-height:560px}}
+@media(max-width:680px){.content-scroll:has(.network-layout){padding:18px 12px 24px}.graph-panel{min-height:0}.graph-canvas,.vis-graph-canvas{height:calc(100vh - 275px);min-height:440px}.detail-drawer{display:none}}

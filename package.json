@@ -17,7 +17,9 @@
     "typescript": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "neo4j-driver": "latest"
+    "neo4j-driver": "latest",
+    "vis-data": "latest",
+    "vis-network": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
