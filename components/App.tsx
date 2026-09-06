@@ -34,6 +34,7 @@ import {
   X,
 } from "lucide-react";
 import { GraphScene } from "./GraphScene";
+import { AskPanel } from "./AskPanel";
 import {
   cases,
   entityById,
@@ -1211,6 +1212,7 @@ function NetworkView({
   setSelectedEdge: (id: string) => void;
 }) {
   const [networkMode, setNetworkMode] = useState("network");
+  const [graphSearch, setGraphSearch] = useState("");
   return (
     <>
       <PageTitle
@@ -1235,7 +1237,22 @@ function NetworkView({
           <button className={networkMode === "path" ? "active" : ""} onClick={() => setNetworkMode("path")}>Path explorer</button>
         </div>
         <div className="network-search">
-          <Search size={14} /> <span>Search graph</span>
+          <Search size={14} />
+          <input
+            aria-label="Search graph"
+            value={graphSearch}
+            onChange={(event) => setGraphSearch(event.target.value)}
+            placeholder="Search graph"
+          />
+          {graphSearch && (
+            <button
+              className="network-search-clear"
+              aria-label="Clear graph search"
+              onClick={() => setGraphSearch("")}
+            >
+              ×
+            </button>
+          )}
         </div>
         <span className="network-count">Live graph view · Neo4j source</span>
       </div>
@@ -1251,7 +1268,11 @@ function NetworkView({
       </div>
       <div className="network-layout">
         <section className="panel graph-panel">
-          <GraphScene focusId={selectedEntity} onSelect={setSelectedEntity} />
+          <GraphScene
+            focusId={selectedEntity}
+            onSelect={setSelectedEntity}
+            searchQuery={graphSearch}
+          />
           <div className="graph-stats">
             <span>
               <strong>08</strong> relationships
@@ -1428,6 +1449,13 @@ function Intelligence({
           Inspect lead <ArrowRight size={14} />
         </button>
       </section>
+      <AskPanel
+        onEntityClick={(id) => {
+          setSelectedEntity(id);
+          setView("network");
+        }}
+        onCiteClick={() => setView("evidence")}
+      />
     </>
   );
 }

@@ -8,26 +8,25 @@
     "seed:neo4j": "tsx scripts/seed.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "embed:evidence": "tsx scripts/embed-evidence.ts"
   },
   "dependencies": {
     "next": "latest",
     "lucide-react": "latest",
-    "three": "latest",
     "typescript": "latest",
     "react": "latest",
     "react-dom": "latest",
     "neo4j-driver": "latest",
+    "pdf-parse": "^2.4.5",
     "vis-data": "latest",
     "vis-network": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@types/three": "latest",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
     "tsx": "latest"
   }
 }

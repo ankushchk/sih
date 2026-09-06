@@ -14,15 +14,18 @@ app/
   api/                 typed Neo4j route handlers
 components/
   App.tsx              client landing, login and workspace state
-  GraphScene.tsx       interactive Three.js graph with orbit controls
+  GraphScene.tsx       interactive vis-network graph with search and focus controls
+  AskPanel.tsx         grounded GraphRAG question interface
 lib/
+  graphRag.ts          Neo4j and vector evidence retrieval
+  embeddings.ts        OpenAI embedding provider
+  answerQuestion.ts    OpenAI grounded answer generation
   neo4j.ts             shared server-side Neo4j driver
-src/
-  data.ts              canonical entities, edges, evidence and derived analytics
 scripts/
   seed.ts              canonical entity and relationship loader
-  graph/route.ts       Neo4j graph query endpoint
-  entity/[id]/route.ts entity detail endpoint
+  embed-evidence.ts    evidence chunk embedding and vector-index loader
+src/
+  data.ts              canonical entities, edges, evidence and derived analytics
 neo4j/
   README.md            connection and seed instructions
 ```
@@ -48,21 +51,22 @@ Every relationship carries evidence references and an explicit status: `observed
 
 ## Route/page map
 
-The prototype uses a unified workspace shell instead of 17 disconnected pages:
+The prototype uses a unified workspace shell instead of disconnected workspace pages:
 
 - `/` landing page
-- `/login` role-aware access gate
-- `/workspace` dashboard, cases and evidence inbox
-- `/workspace/resources` resource library, upload flow and graph impact
-- `/workspace/network` 3D network and relationship explorer
-- `/workspace/intelligence` leads, patterns and timeline
-- `/workspace/integrity` evidence hash verification, security and audit
+- `/` landing, login and workspace shell
+- `/api/graph` Neo4j graph data
+- `/api/entity/:id` entity details
+- `/api/ask` case-scoped GraphRAG answers
+- `/api/health` Neo4j health check
+
+Workspace sections are local client-side view states in `components/App.tsx`.
 
 ## Implementation phases
 
 1. Canonical dataset contracts and Neo4j seeded ingestion model
 2. Investigator shell, case/evidence flow and entity resolution surfaces
-3. Interactive 3D graph and explainability drawer
+3. Interactive 2D graph and explainability drawer
 4. Network analytics, leads, patterns and timeline
 5. Security posture, RBAC, audit trail and integrity demonstration
-6. Landing/login polish and end-to-end verification
+6. GraphRAG grounding, citations and end-to-end verification

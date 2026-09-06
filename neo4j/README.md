@@ -17,6 +17,8 @@ NEO4J_PASSWORD=evidencegraph \
 npm run seed:neo4j
 ```
 
-Start the API separately with `npm run api`. The frontend queries `GET /api/graph`; when the API is unavailable it uses the same typed local fallback and marks that state in the graph toolbar rather than pretending Neo4j is connected.
+Start the application with `npm run dev`. The frontend queries `GET /api/graph`; when the API is unavailable it uses the same typed local fallback and marks that state in the graph toolbar rather than pretending Neo4j is connected. GraphRAG uses `POST /api/ask` and requires the OpenAI variables in `.env.example`.
+
+After seeding the graph, create semantic evidence chunks with `npm run embed:evidence`.
 
 Node labels are `Entity` and `Case`. Relationships include `USES`, `OWNS`, `CONTROLS`, `CALLS`, `VISITED`, `MENTIONED_IN`, `APPEARED_IN`, and generic `RELATES` records for the canonical ground-truth associations.
