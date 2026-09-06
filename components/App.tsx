@@ -337,8 +337,8 @@ function App() {
 
 function Landing({ onEnter }: { onEnter: () => void }) {
   return (
-    <div className="landing">
-      <video className="hero-video" autoPlay muted loop playsInline aria-hidden="true">
+    <div className="landing marketing-landing">
+      <video className="hero-video" autoPlay muted loop playsInline preload="auto" aria-hidden="true">
         <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260809_012548_ef22562c-c0ae-4816-ad9d-f8922af4e6a7.mp4" type="video/mp4" />
       </video>
       <div className="hero-video-overlay" aria-hidden="true" />
@@ -355,10 +355,10 @@ function Landing({ onEnter }: { onEnter: () => void }) {
           Evidence<span className="brand-accent">Graph</span>
         </div>
         <div className="landing-links">
-          <a>Product</a>
-          <a>Case studies</a>
-          <a>Security</a>
-          <a>Contact</a>
+          <a href="#product">Product</a>
+          <a href="#case-studies">Case studies</a>
+          <a href="#security">Security</a>
+          <a href="#contact">Contact</a>
         </div>
         <button className="outline-button" onClick={onEnter}>
           Enter workspace <ArrowRight size={15} />
@@ -383,12 +383,12 @@ function Landing({ onEnter }: { onEnter: () => void }) {
           <button className="primary-button" onClick={onEnter}>
             Enter investigation workspace <ArrowRight size={16} />
           </button>
-          <button className="play-button">
+          <a className="play-button" href="#product">
             <span>
               <Play size={12} fill="currentColor" />
             </span>{" "}
             See how it works
-          </button>
+          </a>
         </div>
         <div className="hero-foot">
           <div>
@@ -417,6 +417,43 @@ function Landing({ onEnter }: { onEnter: () => void }) {
           </div>
         </div>
       </section>
+      <main className="marketing-content">
+        <section id="product" className="marketing-section">
+          <div className="marketing-section-heading">
+            <span className="marketing-kicker">THE WORKSPACE</span>
+            <h2>From fragmented records to explainable intelligence.</h2>
+            <p>EvidenceGraph connects source records, canonical entities and graph relationships into one reviewable investigation workflow.</p>
+          </div>
+          <div className="marketing-feature-grid">
+            <article><span className="marketing-icon"><FileCheck2 size={18} /></span><span className="marketing-number">01</span><h3>Ingest and normalize</h3><p>Bring FIRs, CDRs, financial records, surveillance, transcripts and OSINT into one case-scoped evidence library.</p></article>
+            <article><span className="marketing-icon"><Network size={18} /></span><span className="marketing-number">02</span><h3>Resolve the network</h3><p>Map aliases, phones, vehicles, accounts, locations and organizations to stable canonical entities.</p></article>
+            <article><span className="marketing-icon"><BrainCircuit size={18} /></span><span className="marketing-number">03</span><h3>Explain every lead</h3><p>Use graph analytics and GraphRAG to show why a connection matters, which sources support it and what remains unproven.</p></article>
+          </div>
+          <div className="marketing-process"><span>Source material</span><i /> <span>Entity resolution</span><i /> <span>Evidence graph</span><i /> <span>Investigative lead</span></div>
+        </section>
+
+        <section id="case-studies" className="marketing-section marketing-section-alt">
+          <div className="marketing-section-heading"><span className="marketing-kicker">CASE STUDIES</span><h2>Built around evidence, not assumptions.</h2><p>Demonstration cases show how different source types converge into neutral, auditable investigative signals.</p></div>
+          <div className="marketing-case-grid">
+            <article className="marketing-case-card featured"><span className="case-label">CASE-1004 · ACTIVE</span><h3>Cafe Meridian Network</h3><p>Connect FIR, CDR, surveillance, transcript and vehicle evidence across Delhi and Noida.</p><div><strong>Potential intermediary</strong><span>Vikram Malhotra · P003</span></div><a href="#contact">Request a walkthrough <ArrowRight size={14} /></a></article>
+            <article className="marketing-case-card"><span className="case-label">CASE-1001 · CORRELATION</span><h3>Warehouse 7</h3><p>Resolve the Rahul–Sameer meeting context and connect it to location and vehicle records.</p><div><strong>Observed relationship</strong><span>Source-linked meeting context</span></div></article>
+            <article className="marketing-case-card"><span className="case-label">CASE-1003 · FINANCIAL</span><h3>Old Industrial Road</h3><p>Trace account transfers as neutral financial observations without turning transaction patterns into conclusions.</p><div><strong>Observed financial association</strong><span>Transaction chain with provenance</span></div></article>
+          </div>
+        </section>
+
+        <section id="security" className="marketing-section">
+          <div className="marketing-security-layout">
+            <div className="marketing-section-heading"><span className="marketing-kicker">SECURITY AND PROVENANCE</span><h2>Trust the trail behind every answer.</h2><p>EvidenceGraph keeps source provenance visible and separates observed evidence from corroborated relationships and predicted investigative leads.</p></div>
+            <div className="marketing-security-list"><div><ShieldCheck size={17} /><span><strong>Case-scoped access</strong><small>Investigation context and source references stay within their assigned scope.</small></span></div><div><LockKeyhole size={17} /><span><strong>Evidence stays authoritative</strong><small>Original records remain the basis for every extraction and approved graph change.</small></span></div><div><GitBranch size={17} /><span><strong>Verifiable computation</strong><small>Hash-linked processing events show which inputs and outputs produced a result.</small></span></div></div>
+          </div>
+          <div className="marketing-status-line"><span className="live-dot" /> Prototype environment · synthetic data only · blockchain and ZK proofs are not enabled</div>
+        </section>
+
+        <section id="contact" className="marketing-section marketing-contact-section">
+          <div className="marketing-contact-copy"><span className="marketing-kicker">CONTACT</span><h2>Bring the evidence into focus.</h2><p>Discuss a demonstration, dataset integration or a secure deployment architecture with the EvidenceGraph team.</p><a className="marketing-email" href="mailto:ankush.chauhan@ncrb.gov.in">ankush.chauhan@ncrb.gov.in <ArrowRight size={15} /></a></div>
+          <div className="marketing-contact-card"><span className="eyebrow">DEMO REQUEST</span><strong>CASE-READY BY DESIGN</strong><span>Graph · provenance · explainability</span><a className="primary-button" href="mailto:ankush.chauhan@ncrb.gov.in">Start a conversation <ArrowRight size={15} /></a></div>
+        </section>
+      </main>
       <div className="landing-footer">
         <span>
           Built for the National Crime Records Bureau · Women Safety Division
@@ -445,7 +482,7 @@ function Login({ onLogin }: { onLogin: () => void }) {
         </div>
         <label>
           Official email
-          <input defaultValue="ananya.mehta@ncrb.gov.in" />
+          <input defaultValue="ankush.chauhan@ncrb.gov.in" />
         </label>
         <label>
           Password
