@@ -33,11 +33,16 @@ export function GraphScene({ focusId, onSelect, searchQuery = '' }: Props) {
   selectRef.current = onSelect
 
   useEffect(() => {
-    const api = process.env.NEXT_PUBLIC_GRAPH_API || ''
-    fetch(`${api}/api/graph?limit=220`)
+    const loadGraph = () => {
+      const api = process.env.NEXT_PUBLIC_GRAPH_API || ''
+      return fetch(`${api}/api/graph?limit=220`)
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: GraphPayload) => { setPayload(data); setIsLive(data.source === 'neo4j') })
       .catch(() => setIsLive(false))
+    }
+    void loadGraph()
+    window.addEventListener('evidencegraph:graph-refresh', loadGraph)
+    return () => window.removeEventListener('evidencegraph:graph-refresh', loadGraph)
   }, [])
 
   useEffect(() => {

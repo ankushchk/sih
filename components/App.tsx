@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   ArrowRight,
+  AudioLines,
   Bell,
   BookOpen,
   BrainCircuit,
   Check,
   ChevronRight,
   CircleAlert,
+  CarFront,
   Clock3,
   FileCheck2,
   FileText,
@@ -25,6 +27,7 @@ import {
   PanelLeft,
   Play,
   Search,
+  ScanFace,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -55,6 +58,7 @@ type View =
   | "evidence"
   | "network"
   | "intelligence"
+  | "matching"
   | "timeline"
   | "integrity";
 
@@ -63,6 +67,7 @@ function App() {
   const [view, setView] = useState<View>("network");
   const [selectedEntity, setSelectedEntity] = useState("P003");
   const [selectedEdge, setSelectedEdge] = useState("P001-P003");
+  const [relationshipDrawerOpen, setRelationshipDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sidebar, setSidebar] = useState(true);
   const [processed, setProcessed] = useState(false);
@@ -152,6 +157,15 @@ function App() {
             active={view === "timeline"}
             onClick={() => setView("timeline")}
             compact={!sidebar}
+          />
+          <div className="nav-section">MATCHING</div>
+          <NavItem
+            icon={<ScanFace size={17} />}
+            label="Identity matching"
+            active={view === "matching"}
+            onClick={() => setView("matching")}
+            compact={!sidebar}
+            badge="05"
           />
           <div className="nav-section">CONTROL</div>
           <NavItem
@@ -243,6 +257,7 @@ function App() {
               setSelectedEntity={setSelectedEntity}
               selectedEdge={selectedEdge}
               setSelectedEdge={setSelectedEdge}
+              openRelationshipDrawer={() => setRelationshipDrawerOpen(true)}
             />
           )}
           {view === "intelligence" && (
@@ -252,12 +267,13 @@ function App() {
             />
           )}
           {view === "timeline" && <Timeline />}
+          {view === "matching" && <MatchingView setView={setView} />}
           {view === "integrity" && <Integrity />}
         </div>
       </main>
-      {view === "network" && (
+      {view === "network" && relationshipDrawerOpen && (
         <aside className="detail-drawer">
-          <button className="drawer-close">
+          <button className="drawer-close" onClick={() => setRelationshipDrawerOpen(false)}>
             <X size={16} />
           </button>
           <span className="eyebrow">RELATIONSHIP EXPLORER</span>
@@ -840,6 +856,9 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [resourceTab, setResourceTab] = useState("overview");
+  const [processing, setProcessing] = useState(false);
+  const [resourceError, setResourceError] = useState<string | null>(null);
+  const [reviewData, setReviewData] = useState<{ extractions: { entityId: string; canonicalName: string; rawMention: string; confidence: number }[]; connections: { id: string; sourceName: string; targetName: string; confidence: number }[] } | null>(null);
   const visible = items.filter(
     (item) =>
       (filter === "ALL" || item.type === filter) &&
@@ -847,33 +866,57 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
-  const addFile = (file: File) => {
-    const type = file.name.endsWith(".pdf")
-      ? "DOCUMENT"
-      : file.name.endsWith(".csv")
-        ? "CSV"
-        : file.name.endsWith(".json")
-          ? "OSINT"
-          : "TRANSCRIPT";
-    const resource: Resource = {
-      id: `UPLOAD-${Date.now()}`,
-      filename: file.name,
-      type,
-      title: file.name,
-      caseId: "CASE-1004",
-      timestamp: "Just now",
-      excerpt:
-        "New resource uploaded for investigator review. Processing has not started.",
-      hash: "pending…",
-      integrity: "verified",
-      size: `${Math.max(file.size / 1024, 1).toFixed(1)} KB`,
-      status: "ready",
-      entities: 0,
-      relationships: 0,
-      addedBy: "Ankush Chauhan",
-    };
-    setItems((current) => [resource, ...current]);
-    setSelected(resource);
+  const addFile = async (file: File) => {
+    setResourceError(null);
+    const form = new FormData();
+    form.append("file", file);
+    form.append("caseId", "CASE-1004");
+    try {
+      const response = await fetch("/api/resources", { method: "POST", body: form });
+      const data = (await response.json()) as { resource?: Resource; error?: string };
+      if (!response.ok || !data.resource) throw new Error(data.error || "Upload failed");
+      setItems((current) => [data.resource!, ...current]);
+      setSelected(data.resource);
+      setReviewData(null);
+      setResourceTab("overview");
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : "Upload failed");
+    }
+  };
+
+  const processSelected = async () => {
+    setProcessing(true);
+    setResourceError(null);
+    try {
+      const response = await fetch(`/api/resources/${selected.id}/process`, { method: "POST" });
+      const data = (await response.json()) as { resource?: Resource; extractions?: typeof reviewData extends infer T ? T extends { extractions: infer E } ? E : never : never; connections?: typeof reviewData extends infer T ? T extends { connections: infer C } ? C : never : never; error?: string };
+      if (!response.ok || !data.resource) throw new Error(data.error || "Processing failed");
+      setItems((current) => current.map((item) => item.id === data.resource!.id ? data.resource! : item));
+      setSelected(data.resource);
+      setReviewData({ extractions: (data.extractions || []) as NonNullable<typeof reviewData>["extractions"], connections: (data.connections || []) as NonNullable<typeof reviewData>["connections"] });
+      setResourceTab("extracted");
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : "Processing failed");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const approveSelected = async () => {
+    setProcessing(true);
+    setResourceError(null);
+    try {
+      const response = await fetch(`/api/resources/${selected.id}/approve`, { method: "POST" });
+      const data = (await response.json()) as { resource?: Resource; error?: string };
+      if (!response.ok || !data.resource) throw new Error(data.error || "Approval failed");
+      setItems((current) => current.map((item) => item.id === data.resource!.id ? data.resource! : item));
+      setSelected(data.resource);
+      window.dispatchEvent(new Event("evidencegraph:graph-refresh"));
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : "Approval failed");
+    } finally {
+      setProcessing(false);
+    }
   };
   return (
     <>
@@ -887,10 +930,11 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
             <input
               type="file"
               accept=".pdf,.csv,.json,.txt"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) addFile(file);
-              }}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void addFile(file);
+                  event.currentTarget.value = "";
+                }}
             />
           </label>
         }
@@ -986,6 +1030,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
               <button className={resourceTab === id ? "active" : ""} key={id} onClick={() => setResourceTab(id)}>{label}</button>
             ))}
           </div>
+          {resourceError && <div className="resource-error"><CircleAlert size={14} /> {resourceError}</div>}
           <div className="resource-tab-summary">
             {resourceTab === "overview" && <><strong>Source overview</strong><span>Review the original resource, case scope, and ingestion metadata.</span></>}
             {resourceTab === "extracted" && <><strong>Extracted intelligence</strong><span>{selected.entities || "No"} entities and {selected.relationships || "no"} relationships are available for investigator review.</span></>}
@@ -1026,10 +1071,11 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
               </div>
               <button
                 className="secondary-button small"
-                onClick={() => setView("network")}
+                onClick={selected.status === "ready" ? processSelected : () => setView("network")}
               >
-                Explore graph <Network size={14} />
+                {selected.status === "ready" ? (processing ? "Processing..." : "Process evidence") : <>Explore graph <Network size={14} /></>}
               </button>
+              {selected.status === "review" && <button className="primary-button small" onClick={approveSelected} disabled={processing}>{processing ? "Approving..." : "Approve connections"} <Check size={14} /></button>}
             </div>
             <div className="impact-list">
               <span>
@@ -1042,6 +1088,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
                 <Check size={13} /> SHA-256: {selected.hash}
               </span>
             </div>
+            {reviewData && <div className="extraction-review"><strong>Review mappings before graph approval</strong>{reviewData.extractions.map((item) => <div className="mapping-row" key={item.entityId}><span>"{item.rawMention}"</span><ArrowRight size={13} /><b>{item.canonicalName}</b><small>{item.entityId} · {Math.round(item.confidence * 100)}%</small></div>)}<p>{reviewData.connections.length} candidate connection(s) found from co-occurring mentions. They remain local until approval.</p></div>}
           </div>
           <div className="resource-callout">
             <ShieldCheck size={16} />
@@ -1204,12 +1251,14 @@ function NetworkView({
   selectedEntity,
   setSelectedEntity,
   selectedEdge,
+  openRelationshipDrawer,
   setSelectedEdge,
 }: {
   selectedEntity: string;
   setSelectedEntity: (id: string) => void;
   selectedEdge: string;
   setSelectedEdge: (id: string) => void;
+  openRelationshipDrawer: () => void;
 }) {
   const [networkMode, setNetworkMode] = useState("network");
   const [graphSearch, setGraphSearch] = useState("");
@@ -1270,7 +1319,12 @@ function NetworkView({
         <section className="panel graph-panel">
           <GraphScene
             focusId={selectedEntity}
-            onSelect={setSelectedEntity}
+            onSelect={(id) => {
+              setSelectedEntity(id);
+              const connected = relationships.find((item) => item.source === id || item.target === id);
+              if (connected) setSelectedEdge(connected.id);
+              openRelationshipDrawer();
+            }}
             searchQuery={graphSearch}
           />
           <div className="graph-stats">
@@ -1331,6 +1385,7 @@ function NetworkView({
                   onClick={() => {
                     setSelectedEntity(other);
                     setSelectedEdge(item.id);
+                    openRelationshipDrawer();
                   }}
                 >
                   <span className={`mini-dot ${item.status}`} />
@@ -1458,6 +1513,47 @@ function Intelligence({
       />
     </>
   );
+}
+
+function MatchingView({ setView }: { setView: (v: View) => void }) {
+  const matchers = [
+    { icon: <ScanFace size={18} />, title: "Facial matching", status: "NOT CONFIGURED", tone: "pending", detail: "Compare approved image evidence against a permissioned gallery. Requires a face-detection and embedding service before any investigator review.", metric: "0 indexed faces" },
+    { icon: <Fingerprint size={18} />, title: "Alias and entity matching", status: "ACTIVE", tone: "active", detail: "Resolve names, aliases and canonical IDs from extracted evidence while retaining the original mention.", metric: "12 canonical entities" },
+    { icon: <AudioLines size={18} />, title: "Voice and transcript matching", status: "REVIEW", tone: "review", detail: "Match transcript speaker references and audio metadata to known case entities. Voice biometrics are not enabled.", metric: "2 transcript sources" },
+    { icon: <CarFront size={18} />, title: "Vehicle matching", status: "ACTIVE", tone: "active", detail: "Match registration numbers and vehicle descriptions against the canonical vehicle registry and surveillance events.", metric: "5 registered vehicles" },
+    { icon: <PhoneIcon />, title: "Phone and account matching", status: "ACTIVE", tone: "active", detail: "Link phone numbers, calls, accounts and transfers to resolved entities through source-backed records.", metric: "12 phones · 7 accounts" },
+  ];
+
+  return <>
+    <PageTitle
+      eyebrow="MATCHING / MULTIMODAL EVIDENCE"
+      title="Match signals without overclaiming"
+      copy="Connect faces, names, voices, vehicles, phones and accounts to canonical entities, with every candidate kept reviewable and source-backed."
+      action={<button className="secondary-button" onClick={() => setView("resources")}><ArrowRight size={15} /> Add source material</button>}
+    />
+    <div className="matching-notice panel">
+      <div className="matching-notice-icon"><CircleAlert size={17} /></div>
+      <div><strong>Matching is an investigative aid, not an identity verdict.</strong><p>Potential matches require source review and investigator approval. Facial and voice matching are shown as planned capabilities until a compliant biometric service and consent policy are configured.</p></div>
+    </div>
+    <div className="matching-grid">
+      {matchers.map((matcher) => <section className="panel matching-card" key={matcher.title}>
+        <div className={`matching-icon ${matcher.tone}`}>{matcher.icon}</div>
+        <div className="matching-card-head"><h2>{matcher.title}</h2><span className={`matching-status ${matcher.tone}`}>{matcher.status}</span></div>
+        <p>{matcher.detail}</p>
+        <div className="matching-card-footer"><strong>{matcher.metric}</strong><button className="text-button" onClick={() => matcher.tone === "active" ? setView("network") : undefined}>{matcher.tone === "active" ? "Inspect graph" : "View requirements"} <ArrowRight size={13} /></button></div>
+      </section>)}
+    </div>
+    <section className="panel matching-review-panel">
+      <PanelHeading title="Recent match signals" action="Open evidence" onAction={() => setView("evidence")} />
+      <div className="matching-signal-row"><span className="matching-signal-dot active" /><span><strong>UP14EF9090</strong><small>Vehicle registry ↔ SURV-0012 · Cafe Meridian</small></span><b>OBSERVED</b><em>98%</em></div>
+      <div className="matching-signal-row"><span className="matching-signal-dot active" /><span><strong>“Vicky” → Vikram Malhotra</strong><small>Transcript and FIR aliases ↔ P003</small></span><b>CORROBORATED</b><em>91%</em></div>
+      <div className="matching-signal-row"><span className="matching-signal-dot review" /><span><strong>PH003 ↔ P003</strong><small>CDR usage pattern · investigator review required</small></span><b>REVIEW</b><em>84%</em></div>
+    </section>
+  </>;
+}
+
+function PhoneIcon() {
+  return <span className="phone-icon">⌕</span>;
 }
 
 function Timeline() {

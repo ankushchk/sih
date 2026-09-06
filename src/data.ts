@@ -24,7 +24,7 @@ export type Evidence = {
 export type Resource = Evidence & {
   filename: string
   size: string
-  status: 'processed' | 'ready' | 'review'
+  status: 'processed' | 'ready' | 'review' | 'approved'
   entities: number
   relationships: number
   addedBy: string

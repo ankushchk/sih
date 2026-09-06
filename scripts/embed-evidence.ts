@@ -1,8 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import neo4j from 'neo4j-driver'
-// @ts-expect-error pdf-parse ships CJS types that do not line up with NodeNext resolution
-import pdf from 'pdf-parse'
+import { PDFParse } from 'pdf-parse'
 import { getEmbeddingProvider } from '../lib/embeddings'
 
 const uri = process.env.NEO4J_URI || 'bolt://localhost:7687'
@@ -45,7 +44,9 @@ async function collectPdfChunks(folder: string, sourceType: string): Promise<Chu
   const chunks: Chunk[] = []
   for (const file of files.filter((name) => name.endsWith('.pdf'))) {
     const sourceId = path.basename(file, '.pdf')
-    const parsed = await pdf(await readFile(path.join(dir, file)))
+    const parser = new PDFParse({ data: await readFile(path.join(dir, file)) })
+    const parsed = await parser.getText()
+    await parser.destroy()
     chunkText(parsed.text as string).forEach((text, index) => chunks.push({ id: `${sourceId}-${index}`, text, sourceId, sourceType, caseId: caseForSource(sourceId) }))
   }
   return chunks
