@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getStoredResource } from '@/lib/resources'
 import { appendIntegrityEvent, ensureDocumentCommitment, getIntegrityEvents, verifyIntegrity } from '@/lib/integrity'
+import { verifyMerkleAnchor } from '@/lib/integrityAnchor'
 
 export const runtime = 'nodejs'
 
@@ -16,7 +17,9 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     }
     const verification = await verifyIntegrity(resource.id, resource.storedPath)
     const events = await getIntegrityEvents(resource.id)
-    return NextResponse.json({ ...verification, events })
+    let anchor = { anchored: false, valid: false, rootHash: null as string | null }
+    try { anchor = await verifyMerkleAnchor(resource.caseId, verification.merkleRoot || null) } catch { /* Neo4j may be offline during local verification. */ }
+    return NextResponse.json({ ...verification, anchor, events })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Integrity verification failed' }, { status: 500 })
   }

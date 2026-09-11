@@ -191,3 +191,8 @@ export async function getIntegrityEvents(resourceId: string) {
   const store = await readStore()
   return store.events.filter((event) => event.resourceId === resourceId).sort((a, b) => a.sequence - b.sequence)
 }
+
+export async function getCurrentMerkleRoot() {
+  const store = await readStore()
+  return store.merkleRoot
+}

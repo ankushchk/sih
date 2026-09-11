@@ -3,7 +3,8 @@ import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { PDFParse } from 'pdf-parse'
 import { people, secondaryEntities, type Entity } from '@/src/data'
-import { appendIntegrityEvent, commitDocument, hashValue } from '@/lib/integrity'
+import { appendIntegrityEvent, commitDocument, getCurrentMerkleRoot, hashValue } from '@/lib/integrity'
+import { anchorMerkleRoot } from '@/lib/integrityAnchor'
 
 export type CandidateConnection = {
   id: string
@@ -15,6 +16,9 @@ export type CandidateConnection = {
   status: 'observed'
   confidence: number
   evidence: string[]
+  evidenceExcerpt: string
+  sourceSegment: string
+  reviewStatus: 'pending' | 'approved' | 'rejected'
 }
 
 export type Extraction = {
@@ -23,6 +27,8 @@ export type Extraction = {
   rawMention: string
   type: string
   confidence: number
+  sourceExcerpt: string
+  sourceIndex: number
 }
 
 export type StoredResource = {
@@ -36,7 +42,7 @@ export type StoredResource = {
   hash: string
   integrity: 'verified' | 'mismatch'
   size: string
-  status: 'ready' | 'processed' | 'review' | 'approved'
+  status: 'ready' | 'processing' | 'processed' | 'review' | 'approved' | 'failed'
   entities: number
   relationships: number
   addedBy: string
@@ -46,6 +52,11 @@ export type StoredResource = {
   connections?: CandidateConnection[]
   integrityEntryHash?: string
   lastIntegrityEventHash?: string
+  evidenceChunkCount?: number
+  embeddingStatus?: 'pending' | 'indexed' | 'empty' | 'failed'
+  processingStartedAt?: string
+  processingCompletedAt?: string
+  processingError?: string
   merkleRoot?: string | null
 }
 
@@ -71,8 +82,10 @@ async function writeResources(resources: StoredResource[]) {
   await writeFile(resourceFile, JSON.stringify(resources, null, 2), 'utf8')
 }
 
-export async function listStoredResources() {
-  return readResources()
+export async function listStoredResources(caseId?: string) {
+  const resources = await readResources()
+  if (!caseId) return resources
+  return resources.filter((resource) => resource.caseId === caseId || resource.caseId === 'MULTI-CASE')
 }
 
 export async function getStoredResource(id: string) {
@@ -97,21 +110,35 @@ async function extractText(buffer: Buffer, filename: string) {
   return buffer.toString('utf8')
 }
 
-function resolveEntities(text: string, resourceId: string): { extractions: Extraction[]; connections: CandidateConnection[] } {
+export function resolveEntities(text: string, resourceId: string): { extractions: Extraction[]; connections: CandidateConnection[] } {
   const lowered = text.toLowerCase()
   const extractions = canonicalEntities.flatMap((entity) => {
     const firstName = entity.type === 'PERSON' ? entity.name.split(' ')[0] : undefined
     const mention = [entity.name, entity.alias, firstName, entity.id]
       .filter((candidate) => candidate && candidate.length >= 4)
       .find((candidate) => lowered.includes(candidate!.toLowerCase()))
-    return mention ? [{ entityId: entity.id, canonicalName: entity.name, rawMention: mention, type: entity.type, confidence: mention === entity.name ? 0.98 : 0.9 }] : []
+    if (!mention) return []
+    const index = lowered.indexOf(mention.toLowerCase())
+    return [{ entityId: entity.id, canonicalName: entity.name, rawMention: mention, type: entity.type, confidence: mention === entity.name ? 0.98 : 0.9, sourceExcerpt: text.slice(Math.max(0, index - 80), Math.min(text.length, index + mention.length + 160)).replace(/\s+/g, ' ').trim(), sourceIndex: index }]
   })
   const connections: CandidateConnection[] = []
-  for (let index = 0; index < extractions.length; index += 1) {
-    for (let next = index + 1; next < extractions.length; next += 1) {
-      const left = extractions[index]
-      const right = extractions[next]
-      connections.push({ id: `${resourceId}-${left.entityId}-${right.entityId}`, source: left.entityId, target: right.entityId, sourceName: left.canonicalName, targetName: right.canonicalName, type: 'MENTIONED_TOGETHER', status: 'observed', confidence: Math.min(left.confidence, right.confidence), evidence: [resourceId] })
+  const segments = text.split(/\r?\n|(?<=\})\s*(?=\{)/).map((segment) => segment.trim()).filter(Boolean)
+  const relationshipType = (segment: string) => {
+    const value = segment.toLowerCase()
+    if (/\b(call|called|phone|contact|communicat)/.test(value)) return 'CALLS'
+    if (/\b(transf|paid|payment|account|inr|usd|amount)/.test(value)) return 'TRANSFERRED_TO'
+    if (/\b(visit|visited|arriv|located|at\s+the|near\s+the)/.test(value)) return 'VISITED'
+    if (/\b(meet|met|meeting|together|spoke|speaking)/.test(value)) return 'MET'
+    return 'MENTIONED_TOGETHER'
+  }
+  for (const segment of segments) {
+    const segmentEntities = extractions.filter((extraction) => segment.toLowerCase().includes(extraction.rawMention.toLowerCase()) || segment.toLowerCase().includes(extraction.entityId.toLowerCase()))
+    for (let index = 0; index < segmentEntities.length; index += 1) {
+      for (let next = index + 1; next < segmentEntities.length; next += 1) {
+        const left = segmentEntities[index]
+        const right = segmentEntities[next]
+        connections.push({ id: `${resourceId}-${left.entityId}-${right.entityId}-${connections.length + 1}`, source: left.entityId, target: right.entityId, sourceName: left.canonicalName, targetName: right.canonicalName, type: relationshipType(segment), status: 'observed', confidence: Math.min(left.confidence, right.confidence), evidence: [resourceId], evidenceExcerpt: segment.slice(0, 500), sourceSegment: segment.slice(0, 500), reviewStatus: 'pending' })
+      }
     }
   }
   return { extractions, connections }
@@ -125,6 +152,12 @@ export async function createResource(file: File, caseId: string, addedBy: string
   await ensureStorage()
   await writeFile(storedPath, buffer)
   const commitment = await commitDocument({ resourceId: id, caseId, filename: file.name, sourceHash: hash })
+  try {
+    const root = await getCurrentMerkleRoot()
+    if (root) await anchorMerkleRoot(caseId, root)
+  } catch {
+    // Local uploads remain available when Neo4j is offline; verification reports the unanchored state.
+  }
   const resource: StoredResource = { id, filename: file.name, type: resourceType(file.name), title: file.name, caseId, timestamp: new Date().toISOString(), excerpt: 'Uploaded resource awaiting processing.', hash, integrity: 'verified', size: `${Math.max(file.size / 1024, 1).toFixed(1)} KB`, status: 'ready', entities: 0, relationships: 0, addedBy, storedPath, integrityEntryHash: commitment.entryHash }
   const resources = await readResources()
   resources.unshift(resource)
@@ -145,9 +178,34 @@ export async function processResource(id: string) {
   resource.entities = extractions.length
   resource.relationships = connections.length
   resource.status = 'review'
+  resource.processingCompletedAt = new Date().toISOString()
+  resource.processingError = undefined
+  resource.embeddingStatus = 'pending'
   await writeResources(resources)
   const processingEvent = await appendIntegrityEvent({ resourceId: resource.id, caseId: resource.caseId, eventType: 'EXTRACTION_COMMITTED', inputHashes: [resource.hash], output: { textHash: hashValue(text), extractions, connections } })
   resource.lastIntegrityEventHash = processingEvent.eventHash
+  await writeResources(resources)
+  return resource
+}
+
+export async function markResourceProcessing(id: string) {
+  const resources = await readResources()
+  const resource = resources.find((item) => item.id === id)
+  if (!resource) return undefined
+  resource.status = 'processing'
+  resource.processingStartedAt = new Date().toISOString()
+  resource.processingError = undefined
+  await writeResources(resources)
+  return resource
+}
+
+export async function markResourceProcessingFailed(id: string, error: string) {
+  const resources = await readResources()
+  const resource = resources.find((item) => item.id === id)
+  if (!resource) return undefined
+  resource.status = 'failed'
+  resource.processingCompletedAt = new Date().toISOString()
+  resource.processingError = error
   await writeResources(resources)
   return resource
 }
@@ -157,6 +215,33 @@ export async function approveResource(id: string) {
   const resource = resources.find((item) => item.id === id)
   if (!resource) return undefined
   resource.status = 'approved'
+  await writeResources(resources)
+  return resource
+}
+
+export async function updateConnectionReview(resourceId: string, connectionId: string, update: { action: 'approve' | 'reject' | 'update'; type?: string; confidence?: number }) {
+  const resources = await readResources()
+  const resource = resources.find((item) => item.id === resourceId)
+  const connection = resource?.connections?.find((item) => item.id === connectionId)
+  if (!resource || !connection) return undefined
+  if (update.action === 'approve') connection.reviewStatus = 'approved'
+  if (update.action === 'reject') connection.reviewStatus = 'rejected'
+  if (update.action === 'update') {
+    if (update.type) connection.type = update.type
+    if (typeof update.confidence === 'number') connection.confidence = Math.max(0, Math.min(1, update.confidence))
+  }
+  const active = (resource.connections || []).filter((item) => item.reviewStatus !== 'rejected')
+  if (active.length > 0 && active.every((item) => item.reviewStatus === 'approved')) resource.status = 'approved'
+  await writeResources(resources)
+  return { resource, connection }
+}
+
+export async function updateResourceEmbedding(id: string, result: { count: number; status: 'indexed' | 'empty' | 'failed' }) {
+  const resources = await readResources()
+  const resource = resources.find((item) => item.id === id)
+  if (!resource) return undefined
+  resource.evidenceChunkCount = result.count
+  resource.embeddingStatus = result.status
   await writeResources(resources)
   return resource
 }

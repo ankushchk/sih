@@ -24,10 +24,15 @@ export type Evidence = {
 export type Resource = Evidence & {
   filename: string
   size: string
-  status: 'processed' | 'ready' | 'review' | 'approved'
+  status: 'processed' | 'ready' | 'processing' | 'review' | 'approved' | 'failed'
   entities: number
   relationships: number
   addedBy: string
+  processingStartedAt?: string
+  processingCompletedAt?: string
+  processingError?: string
+  evidenceChunkCount?: number
+  embeddingStatus?: 'pending' | 'indexed' | 'empty' | 'failed'
 }
 
 export type Relationship = {

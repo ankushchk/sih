@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "next dev",
     "seed:neo4j": "tsx scripts/seed.ts",
+    "migrate:cases": "tsx scripts/migrate-cases.ts",
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
     "embed:evidence": "tsx scripts/embed-evidence.ts"
   },
   "dependencies": {

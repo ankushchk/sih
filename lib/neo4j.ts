@@ -7,7 +7,12 @@ export function getNeo4jDriver() {
     const uri = process.env.NEO4J_URI || 'bolt://localhost:7687'
     const user = process.env.NEO4J_USER || 'neo4j'
     const password = process.env.NEO4J_PASSWORD || 'evidencegraph'
-    driver = neo4j.driver(uri, neo4j.auth.basic(user, password))
+    driver = neo4j.driver(uri, neo4j.auth.basic(user, password), {
+      connectionTimeout: 3000,
+      connectionAcquisitionTimeout: 3000,
+      maxTransactionRetryTime: 3000,
+      maxConnectionLifetime: 60 * 60 * 1000,
+    })
   }
   return driver
 }

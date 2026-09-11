@@ -5,8 +5,9 @@ import { DataSet } from 'vis-data/peer'
 import { Network } from 'vis-network/peer'
 import type { Edge, Node } from 'vis-network/peer'
 import { entityById, graphEdges, graphNodes, type GraphEdge, type GraphNode } from '@/src/data'
+import { subscribeWorkspaceEvent, WORKSPACE_EVENTS } from '@/lib/workspaceEvents'
 
-type Props = { focusId?: string; onSelect?: (id: string) => void; communities?: boolean; searchQuery?: string }
+type Props = { focusId?: string; onSelect?: (id: string) => void; communities?: boolean; searchQuery?: string; statusFilter?: 'all' | 'observed' | 'corroborated' | 'predicted'; expanded?: boolean; caseId?: string }
 type GraphPayload = { source: string; nodes: GraphNode[]; edges: GraphEdge[] }
 
 function degreeFor(nodes: GraphNode[], edges: GraphEdge[]) {
@@ -24,7 +25,7 @@ function clusterColor(node: GraphNode) {
   return colors[node.jurisdiction || ''] || (node.type === 'LOCATION' ? '#8b8b8b' : '#6b7280')
 }
 
-export function GraphScene({ focusId, onSelect, searchQuery = '' }: Props) {
+export function GraphScene({ focusId, onSelect, searchQuery = '', statusFilter = 'all', expanded = false, caseId = '' }: Props) {
   const mountRef = useRef<HTMLDivElement>(null)
   const networkRef = useRef<Network | null>(null)
   const selectRef = useRef(onSelect)
@@ -35,21 +36,24 @@ export function GraphScene({ focusId, onSelect, searchQuery = '' }: Props) {
   useEffect(() => {
     const loadGraph = () => {
       const api = process.env.NEXT_PUBLIC_GRAPH_API || ''
-      return fetch(`${api}/api/graph?limit=220`)
-      .then((response) => response.ok ? response.json() : Promise.reject())
+      const controller = new AbortController()
+      const timeout = window.setTimeout(() => controller.abort(), 5000)
+      return fetch(`${api}/api/graph?limit=${expanded ? 220 : 90}&caseId=${encodeURIComponent(caseId)}`, { signal: controller.signal })
+        .finally(() => window.clearTimeout(timeout))
+        .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: GraphPayload) => { setPayload(data); setIsLive(data.source === 'neo4j') })
       .catch(() => setIsLive(false))
     }
     void loadGraph()
-    window.addEventListener('evidencegraph:graph-refresh', loadGraph)
-    return () => window.removeEventListener('evidencegraph:graph-refresh', loadGraph)
+    return subscribeWorkspaceEvent(WORKSPACE_EVENTS.graphRefresh, () => void loadGraph())
   }, [])
 
   useEffect(() => {
     const mount = mountRef.current
     if (!mount) return
     networkRef.current?.destroy()
-    const degrees = degreeFor(payload.nodes, payload.edges)
+    const visibleEdges = statusFilter === 'all' ? payload.edges : payload.edges.filter((edge) => edge.status === statusFilter)
+    const degrees = degreeFor(payload.nodes, visibleEdges)
     const normalizedSearch = searchQuery.trim().toLowerCase()
     const matchesNode = (node: GraphNode) => !normalizedSearch || [node.id, node.name, node.alias, node.type, node.jurisdiction]
       .filter(Boolean)
@@ -72,7 +76,7 @@ export function GraphScene({ focusId, onSelect, searchQuery = '' }: Props) {
         shadow: { enabled: node.id === 'P003' || (isMatch && Boolean(normalizedSearch)), color: '#000000', size: 4, x: 2, y: 2 },
       }
     }))
-    const edges = new DataSet<Edge>(payload.edges.map((edge) => ({
+    const edges = new DataSet<Edge>(visibleEdges.map((edge) => ({
       id: edge.id,
       from: edge.source,
       to: edge.target,
@@ -98,7 +102,7 @@ export function GraphScene({ focusId, onSelect, searchQuery = '' }: Props) {
     network.on('click', (event) => { const id = event.nodes?.[0]; if (typeof id === 'string') selectRef.current?.(id) })
     networkRef.current = network
     return () => { network.destroy(); networkRef.current = null }
-  }, [payload, searchQuery])
+  }, [payload, searchQuery, statusFilter])
 
   useEffect(() => {
     const network = networkRef.current

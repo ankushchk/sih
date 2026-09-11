@@ -3,8 +3,9 @@ import { createResource, listStoredResources, publicResource } from '@/lib/resou
 
 export const runtime = 'nodejs'
 
-export async function GET() {
-  const resources = await listStoredResources()
+export async function GET(request: Request) {
+  const caseId = new URL(request.url).searchParams.get('caseId') || undefined
+  const resources = await listStoredResources(caseId)
   return NextResponse.json({ resources: resources.map(publicResource) })
 }
 

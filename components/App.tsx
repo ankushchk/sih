@@ -38,16 +38,16 @@ import {
 } from "lucide-react";
 import { GraphScene } from "@/components/GraphScene";
 import { AskPanel } from "@/components/AskPanel";
+import { emitWorkspaceEvent, subscribeWorkspaceEvent, WORKSPACE_EVENTS } from "@/lib/workspaceEvents";
+import { useWorkspace } from "@/components/WorkspaceProvider";
 import {
   cases,
   entityById,
   evidence,
-  leads,
   people,
   patterns,
   relationships,
   resources,
-  timeline,
   type Resource,
 } from "@/src/data";
 
@@ -63,6 +63,7 @@ type View =
   | "integrity";
 
 function App() {
+  const { activeCaseId, cases: workspaceCases, setActiveCaseId, summary } = useWorkspace();
   const [screen, setScreen] = useState<"landing" | "login" | "app">("landing");
   const [view, setView] = useState<View>("network");
   const [selectedEntity, setSelectedEntity] = useState("P003");
@@ -71,6 +72,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [sidebar, setSidebar] = useState(true);
   const [processed, setProcessed] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   if (screen === "landing")
     return <Landing onEnter={() => setScreen("login")} />;
@@ -98,8 +100,10 @@ function App() {
         {sidebar && (
           <div className="case-selector">
             <span className="eyebrow">ACTIVE INVESTIGATION</span>
-            <strong>CASE-1004</strong>
-            <span className="case-selector-title">Cafe Meridian Network</span>
+            <select className="case-selector-select" value={activeCaseId} onChange={(event) => setActiveCaseId(event.target.value)} aria-label="Active investigation">
+              {(workspaceCases.length ? workspaceCases : [{ id: activeCaseId, title: activeCaseId, status: "", priority: "", jurisdiction: "" }]).map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}
+            </select>
+            <span className="case-selector-title">{summary?.case.title || "Loading investigation..."}</span>
             <ChevronRight size={15} />
           </div>
         )}
@@ -117,7 +121,7 @@ function App() {
             active={view === "cases"}
             onClick={() => setView("cases")}
             compact={!sidebar}
-            badge="4"
+            badge={summary ? String(summary.metrics.activeCases) : "—"}
           />
           <NavItem
             icon={<FileText size={17} />}
@@ -125,7 +129,7 @@ function App() {
             active={view === "evidence"}
             onClick={() => setView("evidence")}
             compact={!sidebar}
-            badge="8"
+            badge={summary ? String(summary.metrics.evidenceRecords) : "—"}
           />
           <NavItem
             icon={<Globe2 size={17} />}
@@ -133,7 +137,7 @@ function App() {
             active={view === "resources"}
             onClick={() => setView("resources")}
             compact={!sidebar}
-            badge="11"
+            badge={summary ? String(summary.metrics.evidenceRecords) : "—"}
           />
           <div className="nav-section">INVESTIGATE</div>
           <NavItem
@@ -149,7 +153,7 @@ function App() {
             active={view === "intelligence"}
             onClick={() => setView("intelligence")}
             compact={!sidebar}
-            badge="3"
+            badge={summary ? String(summary.metrics.openLeads) : "—"}
           />
           <NavItem
             icon={<Clock3 size={17} />}
@@ -165,7 +169,7 @@ function App() {
             active={view === "matching"}
             onClick={() => setView("matching")}
             compact={!sidebar}
-            badge="05"
+            badge={summary ? String(summary.metrics.entitiesResolved) : "—"}
           />
           <div className="nav-section">CONTROL</div>
           <NavItem
@@ -228,13 +232,17 @@ function App() {
                 placeholder="Search entities, cases, evidence..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && search.trim()) setView("network");
+                }}
               />
               <kbd>⌘ K</kbd>
             </div>
-            <button className="icon-button">
+            <button className="icon-button" aria-label="Notifications" onClick={() => setNotificationsOpen((open) => !open)}>
               <Bell size={17} />
               <i className="notification-dot" />
             </button>
+            {notificationsOpen && <div className="notification-popover"><strong>Recent notifications</strong><span>Evidence hash verified for the latest uploaded resource.</span><span>Vikram Malhotra remains the highest-priority investigative lead.</span></div>}
             <div className="top-avatar">AM</div>
           </div>
         </header>
@@ -248,7 +256,7 @@ function App() {
           )}
           {view === "cases" && <Cases setView={setView} />}
           {view === "evidence" && (
-            <EvidenceInbox processed={processed} setProcessed={setProcessed} />
+            <EvidenceInbox processed={processed} setProcessed={setProcessed} setView={setView} />
           )}
           {view === "resources" && <ResourceLibrary setView={setView} />}
           {view === "network" && (
@@ -258,6 +266,7 @@ function App() {
               selectedEdge={selectedEdge}
               setSelectedEdge={setSelectedEdge}
               openRelationshipDrawer={() => setRelationshipDrawerOpen(true)}
+              globalSearch={search}
             />
           )}
           {view === "intelligence" && (
@@ -580,10 +589,15 @@ function Overview({
   processed: boolean;
   setProcessed: (v: boolean) => void;
 }) {
+  const { activeCaseId, summary: workspaceSummary } = useWorkspace();
+  const summary = workspaceSummary;
+  const lead = summary?.lead;
+  const metrics = summary?.metrics;
+  const progress = metrics?.processingPercent ?? null;
   return (
     <>
       <PageTitle
-        eyebrow="COMMAND CENTER / 06 SEP 2026"
+        eyebrow={`COMMAND CENTER / ${activeCaseId}`}
         title="Good morning, Ankush."
         copy="Here is the signal across your active investigations."
         action={
@@ -598,10 +612,8 @@ function Overview({
         </div>
         <div>
           <span className="eyebrow">LEAD SIGNAL · HIGH PRIORITY</span>
-          <h3>Vikram Malhotra is the strongest cross-community intermediary</h3>
-          <p>
-            5 cross-source relationships · 4 case contexts · bridge score 0.91
-          </p>
+          <h3>{lead ? `${lead.name} is the strongest ${lead.label.toLowerCase()}` : "No prioritized lead is available yet"}</h3>
+          <p>{lead ? `${lead.signals.slice(0, 2).join(" · ")} · priority score ${lead.score}` : "Process evidence to generate investigative signals."}</p>
         </div>
         <button
           onClick={() => {
@@ -614,29 +626,29 @@ function Overview({
       <div className="metric-grid">
         <Metric
           label="Active cases"
-          value="03"
-          detail="1 requires attention"
+          value={metrics ? String(metrics.activeCases).padStart(2, "0") : "—"}
+          detail={metrics ? "Active investigations" : "Loading live case data"}
           icon={<Target size={17} />}
           tone="orange"
         />
         <Metric
           label="Evidence records"
-          value="52"
-          detail="8 new this week"
+          value={metrics ? String(metrics.evidenceRecords).padStart(2, "0") : "—"}
+          detail={metrics ? `${metrics.processedRecords} processed in this workspace` : "Loading live resource data"}
           icon={<FileCheck2 size={17} />}
           tone="blue"
         />
         <Metric
           label="Entities resolved"
-          value="12"
-          detail="4 aliases matched"
+          value={metrics ? String(metrics.entitiesResolved).padStart(2, "0") : "—"}
+          detail={metrics ? "Distinct extracted entities" : "Loading extracted entities"}
           icon={<Users size={17} />}
           tone="green"
         />
         <Metric
           label="Open leads"
-          value="03"
-          detail="1 high priority"
+          value={metrics ? String(metrics.openLeads).padStart(2, "0") : "—"}
+          detail={metrics ? "Predicted leads requiring review" : "Loading graph signals"}
           icon={<Sparkles size={17} />}
           tone="purple"
         />
@@ -650,21 +662,21 @@ function Overview({
           />
           <div className="case-hero">
             <div className="case-tag">
-              CASE-1004 <span>ACTIVE</span>
+              {activeCaseId} <span>ACTIVE</span>
             </div>
-            <h2>Cafe Meridian Network Demonstration</h2>
-            <p>Primary demo case · Delhi / Noida jurisdiction</p>
+            <h2>{summary?.case.title || "Loading active investigation..."}</h2>
+            <p>{summary?.case.priority || ""} priority · {summary?.case.jurisdiction || "Loading jurisdiction..."}</p>
             <div className="case-progress">
               <div>
                 <span>Evidence processing</span>
-                <strong>{processed ? "100%" : "72%"}</strong>
+                <strong>{progress == null ? "—" : `${progress}%`}</strong>
               </div>
               <div className="progress-track">
-                <i style={{ width: processed ? "100%" : "72%" }} />
+                <i style={{ width: `${progress ?? 0}%` }} />
               </div>
             </div>
             <button className="text-button" onClick={() => setView("evidence")}>
-              {processed ? "Review extracted results" : "Continue processing"}{" "}
+              {progress === 100 ? "Review extracted results" : "Continue processing"}{" "}
               <ArrowRight size={14} />
             </button>
           </div>
@@ -675,7 +687,7 @@ function Overview({
             action="View all"
             onAction={() => setView("intelligence")}
           />
-          {leads.map((lead) => (
+          {(summary?.leads || []).map((lead) => (
             <button
               className="lead-row"
               key={lead.id}
@@ -690,6 +702,7 @@ function Overview({
               <ChevronRight size={15} />
             </button>
           ))}
+          {summary && summary.leads.length === 0 && <div className="empty-state">No leads are available for this case yet.</div>}
         </section>
       </div>
       <div className="bottom-grid">
@@ -699,27 +712,13 @@ function Overview({
             action="Audit trail"
             onAction={() => setView("integrity")}
           />
-          {[
-            [
-              "09:42",
-              "Evidence hash verified",
-              "FIR-1004.pdf · integrity ledger",
-              "green",
-            ],
-            ["09:18", "Entity resolved", "“Raju” → P001 Rahul Sharma", "blue"],
-            [
-              "Yesterday",
-              "New lead generated",
-              "Rahul ↔ Imran · predicted",
-              "purple",
-            ],
-          ].map(([time, title, sub, tone]) => (
-            <div className="activity-row" key={title}>
+          {(summary?.activity || []).map(({ id, time, title, detail, tone }) => (
+            <div className="activity-row" key={id}>
               <span className={`activity-dot ${tone}`} />
-              <span className="activity-time">{time}</span>
+              <span className="activity-time">{Number.isNaN(Date.parse(time)) ? time : new Date(time).toLocaleDateString()}</span>
               <span>
                 <strong>{title}</strong>
-                <small>{sub}</small>
+                <small>{detail}</small>
               </span>
             </div>
           ))}
@@ -734,26 +733,26 @@ function Overview({
             <PipelineStep
               icon={<FileText size={16} />}
               label="Ingested"
-              value="08"
-              done
+              value={metrics ? String(metrics.pipeline.ingested).padStart(2, "0") : "—"}
+              done={Boolean(metrics)}
             />
             <PipelineStep
               icon={<BrainCircuit size={16} />}
               label="Extracted"
-              value={processed ? "08" : "06"}
-              done={processed}
+              value={metrics ? String(metrics.pipeline.extracted).padStart(2, "0") : "—"}
+              done={(metrics?.pipeline.extracted ?? 0) > 0}
             />
             <PipelineStep
               icon={<GitBranch size={16} />}
               label="Resolved"
-              value="12"
-              done
+              value={metrics ? String(metrics.pipeline.resolved).padStart(2, "0") : "—"}
+              done={(metrics?.pipeline.resolved ?? 0) > 0}
             />
             <PipelineStep
               icon={<Network size={16} />}
               label="In graph"
-              value="08"
-              done
+              value={metrics ? String(metrics.pipeline.inGraph).padStart(2, "0") : "—"}
+              done={(metrics?.pipeline.inGraph ?? 0) > 0}
             />
           </div>
         </section>
@@ -825,6 +824,13 @@ function PipelineStep({
 }
 
 function Cases({ setView }: { setView: (v: View) => void }) {
+  const { activeCaseId } = useWorkspace();
+  const [query, setQuery] = useState("");
+  const [priority, setPriority] = useState("ALL");
+  const visibleCases = cases.filter((item) =>
+    (priority === "ALL" || item.priority === priority) &&
+    `${item.id} ${item.title} ${item.jurisdiction}`.toLowerCase().includes(query.toLowerCase()),
+  );
   return (
     <>
       <PageTitle
@@ -842,12 +848,12 @@ function Cases({ setView }: { setView: (v: View) => void }) {
       />
       <div className="case-table panel">
         <div className="table-toolbar">
-          <div className="filter-search">
+          <label className="filter-search">
             <Search size={15} />
-            <span>Filter cases...</span>
-          </div>
-          <button className="filter-button">
-            <SlidersHorizontal size={14} /> Filters
+            <input aria-label="Filter cases" placeholder="Filter cases..." value={query} onChange={(event) => setQuery(event.target.value)} />
+          </label>
+          <button className="filter-button" onClick={() => setPriority((current) => current === "ALL" ? "HIGH" : current === "HIGH" ? "MEDIUM" : current === "MEDIUM" ? "LOW" : "ALL")}>
+            <SlidersHorizontal size={14} /> {priority === "ALL" ? "All priorities" : priority}
           </button>
         </div>
         <div className="table-head">
@@ -858,12 +864,12 @@ function Cases({ setView }: { setView: (v: View) => void }) {
           <span>UPDATED</span>
           <span />
         </div>
-        {cases.map((item) => (
+        {visibleCases.map((item) => (
           <button
             className="case-row"
             key={item.id}
             onClick={() =>
-              setView(item.id === "CASE-1004" ? "evidence" : "network")
+              setView(item.id === activeCaseId ? "evidence" : "network")
             }
           >
             <span>
@@ -882,20 +888,26 @@ function Cases({ setView }: { setView: (v: View) => void }) {
             <ChevronRight size={15} />
           </button>
         ))}
+        {visibleCases.length === 0 && <div className="empty-state">No cases match the current filters.</div>}
       </div>
     </>
   );
 }
 
 function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
+  const { activeCaseId } = useWorkspace();
   const [items, setItems] = useState<Resource[]>(resources);
   const [selected, setSelected] = useState<Resource>(resources[0]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [resourceTab, setResourceTab] = useState("overview");
   const [processing, setProcessing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [resourceError, setResourceError] = useState<string | null>(null);
-  const [reviewData, setReviewData] = useState<{ extractions: { entityId: string; canonicalName: string; rawMention: string; confidence: number }[]; connections: { id: string; sourceName: string; targetName: string; confidence: number }[] } | null>(null);
+  const [resourceNotice, setResourceNotice] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [reviewData, setReviewData] = useState<{ extractions: { entityId: string; canonicalName: string; rawMention: string; confidence: number }[]; connections: { id: string; sourceName: string; targetName: string; confidence: number; type?: string; reviewStatus?: string; evidenceExcerpt?: string }[] } | null>(null);
+  const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
   const visible = items.filter(
     (item) =>
       (filter === "ALL" || item.type === filter) &&
@@ -903,11 +915,56 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+
+  const loadResources = async () => {
+    try {
+      const response = await fetch(`/api/resources?caseId=${encodeURIComponent(activeCaseId)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Resource list unavailable");
+      const data = (await response.json()) as { resources: Resource[] };
+      setItems((current) => {
+        const byId = new Map(current.map((item) => [item.id, item]));
+        data.resources.forEach((item) => byId.set(item.id, { ...byId.get(item.id), ...item }));
+        return Array.from(byId.values());
+      });
+    } catch {
+      setResourceError("Could not refresh stored resources.");
+    }
+  };
+
+  const selectResource = async (item: Resource) => {
+    setSelected(item);
+    setReviewData(null);
+    if (!item.id.startsWith("UPLOAD-")) return;
+    try {
+      const response = await fetch(`/api/resources/${item.id}`);
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        resource?: Resource & {
+          extractions?: { entityId: string; canonicalName: string; rawMention: string; confidence: number }[];
+          connections?: { id: string; sourceName: string; targetName: string; confidence: number }[];
+        };
+      };
+      if (!data.resource) return;
+      setSelected(data.resource);
+      if (data.resource.extractions || data.resource.connections) {
+        setReviewData({ extractions: data.resource.extractions || [], connections: data.resource.connections || [] });
+      }
+    } catch {
+      setResourceError("Could not load resource details.");
+    }
+  };
+
+  useEffect(() => {
+    void loadResources();
+    return subscribeWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, () => void loadResources());
+  }, []);
   const addFile = async (file: File) => {
+    setUploading(true);
     setResourceError(null);
+    setResourceNotice(null);
     const form = new FormData();
     form.append("file", file);
-    form.append("caseId", "CASE-1004");
+    form.append("caseId", activeCaseId);
     try {
       const response = await fetch("/api/resources", { method: "POST", body: form });
       const data = (await response.json()) as { resource?: Resource; error?: string };
@@ -915,15 +972,21 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
       setItems((current) => [data.resource!, ...current]);
       setSelected(data.resource);
       setReviewData(null);
+      setSelectedConnections([]);
       setResourceTab("overview");
+      setResourceNotice(`${data.resource.filename} uploaded and committed to the integrity ledger.`);
+      emitWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, data.resource);
     } catch (error) {
       setResourceError(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setUploading(false);
     }
   };
 
   const processSelected = async () => {
     setProcessing(true);
     setResourceError(null);
+    setResourceNotice(null);
     try {
       const response = await fetch(`/api/resources/${selected.id}/process`, { method: "POST" });
       const data = (await response.json()) as { resource?: Resource; extractions?: typeof reviewData extends infer T ? T extends { extractions: infer E } ? E : never : never; connections?: typeof reviewData extends infer T ? T extends { connections: infer C } ? C : never : never; error?: string };
@@ -931,7 +994,10 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
       setItems((current) => current.map((item) => item.id === data.resource!.id ? data.resource! : item));
       setSelected(data.resource);
       setReviewData({ extractions: (data.extractions || []) as NonNullable<typeof reviewData>["extractions"], connections: (data.connections || []) as NonNullable<typeof reviewData>["connections"] });
+      setSelectedConnections((data.connections || []).map((connection) => connection.id));
       setResourceTab("extracted");
+      setResourceNotice(`${data.resource.filename} processed. Review the extracted relationships before approval.`);
+      emitWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, data.resource);
     } catch (error) {
       setResourceError(error instanceof Error ? error.message : "Processing failed");
     } finally {
@@ -942,31 +1008,95 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
   const approveSelected = async () => {
     setProcessing(true);
     setResourceError(null);
+    setResourceNotice(null);
     try {
-      const response = await fetch(`/api/resources/${selected.id}/approve`, { method: "POST" });
+      const response = await fetch(`/api/resources/${selected.id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ connectionIds: selectedConnections }) });
       const data = (await response.json()) as { resource?: Resource; error?: string };
       if (!response.ok || !data.resource) throw new Error(data.error || "Approval failed");
       setItems((current) => current.map((item) => item.id === data.resource!.id ? data.resource! : item));
       setSelected(data.resource);
-      window.dispatchEvent(new Event("evidencegraph:graph-refresh"));
+      setResourceNotice(`${data.resource.filename} approved and the graph is refreshing.`);
+      emitWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, data.resource);
+      emitWorkspaceEvent(WORKSPACE_EVENTS.graphRefresh, data.resource);
+      emitWorkspaceEvent(WORKSPACE_EVENTS.integrityRefresh, data.resource);
     } catch (error) {
       setResourceError(error instanceof Error ? error.message : "Approval failed");
     } finally {
       setProcessing(false);
     }
   };
+
+  const reviewConnection = async (connectionId: string, action: "approve" | "reject") => {
+    setProcessing(true);
+    setResourceError(null);
+    try {
+      const response = await fetch(`/api/resources/${selected.id}/connections/${connectionId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+      const data = (await response.json()) as { resource?: Resource; connection?: { id: string; reviewStatus?: string }; error?: string };
+      if (!response.ok || !data.resource) throw new Error(data.error || "Review update failed");
+      setItems((current) => current.map((item) => item.id === data.resource!.id ? data.resource! : item));
+      setSelected(data.resource);
+      setReviewData((current) => current ? { ...current, connections: current.connections.map((connection) => connection.id === connectionId ? { ...connection, reviewStatus: action === "approve" ? "approved" : "rejected" } : connection) } : current);
+      setSelectedConnections((current) => current.filter((id) => id !== connectionId));
+      emitWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, data.resource);
+      if (action === "approve") emitWorkspaceEvent(WORKSPACE_EVENTS.graphRefresh, data.resource);
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : "Review update failed");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const updateConnection = async (connectionId: string, type: string, confidence: number) => {
+    try {
+      const response = await fetch(`/api/resources/${selected.id}/connections/${connectionId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "update", type, confidence }) });
+      const data = (await response.json()) as { resource?: Resource; error?: string };
+      if (!response.ok || !data.resource) throw new Error(data.error || "Connection update failed");
+      setItems((current) => current.map((item) => item.id === data.resource!.id ? data.resource! : item));
+      setSelected(data.resource);
+      setReviewData((current) => current ? { ...current, connections: current.connections.map((connection) => connection.id === connectionId ? { ...connection, type, confidence } : connection) } : current);
+      emitWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, data.resource);
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : "Connection update failed");
+    }
+  };
+
+  const verifySelected = async () => {
+    if (!selected.id.startsWith("UPLOAD-")) {
+      setResourceError("Integrity verification is available for uploaded resources.");
+      return;
+    }
+    setVerifying(true);
+    setResourceError(null);
+    setResourceNotice(null);
+    try {
+      const response = await fetch(`/api/resources/${selected.id}/verify`, { method: "POST" });
+      const data = (await response.json()) as { valid?: boolean; error?: string; reason?: string };
+      if (!response.ok && data.valid !== false) throw new Error(data.error || "Verification failed");
+      const nextIntegrity = data.valid ? "verified" : "mismatch";
+      const next = { ...selected, integrity: nextIntegrity as Resource["integrity"] };
+      setItems((current) => current.map((item) => item.id === next.id ? next : item));
+      setSelected(next);
+      if (data.valid) setResourceNotice("Document hash, Merkle commitment, and integrity chain verified.");
+      if (!data.valid) setResourceError(data.reason || "The stored file does not match its committed hash.");
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : "Verification failed");
+    } finally {
+      setVerifying(false);
+    }
+  };
   return (
     <>
       <PageTitle
-        eyebrow="RESOURCE LIBRARY / CASE-1004"
+        eyebrow={`RESOURCE LIBRARY / ${activeCaseId}`}
         title="Explore your evidence"
         copy="Add source material, review extraction, and follow every resource into the knowledge graph."
         action={
           <label className="primary-button upload-label">
-            <ArrowRight size={15} /> Add resource
+            <ArrowRight size={15} /> {uploading ? "Uploading..." : "Add resource"}
             <input
               type="file"
               accept=".pdf,.csv,.json,.txt"
+              disabled={uploading}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) void addFile(file);
@@ -994,7 +1124,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
               >
                 All
               </button>
-              {["FIR", "CDR", "FINANCIAL", "SURVEILLANCE", "TRANSCRIPT"].map(
+              {["FIR", "CDR", "FINANCIAL", "SURVEILLANCE", "TRANSCRIPT", "CSV", "OSINT"].map(
                 (type) => (
                   <button
                     className={filter === type ? "active" : ""}
@@ -1015,7 +1145,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
             <button
               className={`resource-row ${selected.id === item.id ? "selected" : ""}`}
               key={item.id}
-              onClick={() => setSelected(item)}
+              onClick={() => void selectResource(item)}
             >
               <span className={`resource-file ${item.type.toLowerCase()}`}>
                 <FileText size={16} />
@@ -1068,11 +1198,12 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
             ))}
           </div>
           {resourceError && <div className="resource-error"><CircleAlert size={14} /> {resourceError}</div>}
+          {resourceNotice && <div className="inline-notice"><Check size={14} /> {resourceNotice}</div>}
           <div className="resource-tab-summary">
             {resourceTab === "overview" && <><strong>Source overview</strong><span>Review the original resource, case scope, and ingestion metadata.</span></>}
             {resourceTab === "extracted" && <><strong>Extracted intelligence</strong><span>{selected.entities || "No"} entities and {selected.relationships || "no"} relationships are available for investigator review.</span></>}
             {resourceTab === "graph" && <><strong>Graph impact</strong><span>This resource can be traced to every entity and relationship it supports.</span><button className="text-button" onClick={() => setView("network")}>Open graph <ArrowRight size={13} /></button></>}
-            {resourceTab === "integrity" && <><strong>Integrity record</strong><span>SHA-256 {selected.hash} · {selected.integrity === "verified" ? "Verified against ledger" : "Integrity mismatch"}</span></>}
+            {resourceTab === "integrity" && <><strong>Integrity record</strong><span>SHA-256 {selected.hash} · {selected.integrity === "verified" ? "Verified against ledger" : "Integrity mismatch"}</span>{selected.id.startsWith("UPLOAD-") && <button className="secondary-button small" onClick={verifySelected} disabled={verifying}>{verifying ? "Verifying..." : "Verify document"}</button>}</>}
           </div>
           <div className="resource-preview">
             <div className="resource-preview-icon">
@@ -1108,12 +1239,14 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
               </div>
               <button
                 className="secondary-button small"
-                onClick={selected.status === "ready" ? processSelected : () => setView("network")}
+                onClick={selected.status === "ready" || selected.status === "failed" ? processSelected : selected.status === "processing" ? undefined : () => setView("network")}
+                disabled={processing || selected.status === "processing"}
               >
-                {selected.status === "ready" ? (processing ? "Processing..." : "Process evidence") : <>Explore graph <Network size={14} /></>}
+                {selected.status === "ready" || selected.status === "failed" ? (processing ? "Processing..." : selected.status === "failed" ? "Retry processing" : "Process evidence") : selected.status === "processing" ? "Processing..." : <>Explore graph <Network size={14} /></>}
               </button>
               {selected.status === "review" && <button className="primary-button small" onClick={approveSelected} disabled={processing}>{processing ? "Approving..." : "Approve connections"} <Check size={14} /></button>}
             </div>
+            {selected.processingError && <div className="resource-error"><CircleAlert size={14} /> {selected.processingError}</div>}
             <div className="impact-list">
               <span>
                 <Check size={13} /> Source retained with provenance
@@ -1125,7 +1258,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
                 <Check size={13} /> SHA-256: {selected.hash}
               </span>
             </div>
-            {reviewData && <div className="extraction-review"><strong>Review mappings before graph approval</strong>{reviewData.extractions.map((item) => <div className="mapping-row" key={item.entityId}><span>"{item.rawMention}"</span><ArrowRight size={13} /><b>{item.canonicalName}</b><small>{item.entityId} · {Math.round(item.confidence * 100)}%</small></div>)}<p>{reviewData.connections.length} candidate connection(s) found from co-occurring mentions. They remain local until approval.</p></div>}
+            {reviewData && <div className="extraction-review"><strong>Review mappings and candidate relationships</strong>{reviewData.extractions.map((item) => <div className="mapping-row" key={item.entityId}><span>"{item.rawMention}"</span><ArrowRight size={13} /><b>{item.canonicalName}</b><small>{item.entityId} · {Math.round(item.confidence * 100)}%</small></div>)}<div className="candidate-connections">{reviewData.connections.map((connection) => <div className="candidate-connection" key={connection.id}><label><input type="checkbox" checked={selectedConnections.includes(connection.id)} onChange={() => setSelectedConnections((current) => current.includes(connection.id) ? current.filter((id) => id !== connection.id) : [...current, connection.id])} disabled={connection.reviewStatus === "approved" || connection.reviewStatus === "rejected"} /><span><b>{connection.sourceName} → {connection.targetName}</b><small><select value={connection.type || "MENTIONED_TOGETHER"} onChange={(event) => void updateConnection(connection.id, event.target.value, connection.confidence)} disabled={connection.reviewStatus !== "pending"}><option>MENTIONED_TOGETHER</option><option>MET</option><option>CALLS</option><option>VISITED</option><option>TRANSFERRED_TO</option></select> · {Math.round(connection.confidence * 100)}% · {connection.reviewStatus || "pending"}</small><em>{connection.evidenceExcerpt || "No source excerpt captured."}</em></span></label><div><input type="range" min="0" max="100" value={Math.round(connection.confidence * 100)} onChange={(event) => void updateConnection(connection.id, connection.type || "MENTIONED_TOGETHER", Number(event.target.value) / 100)} disabled={connection.reviewStatus !== "pending"} /><button className="text-button" onClick={() => void reviewConnection(connection.id, "approve")} disabled={processing || connection.reviewStatus === "approved"}>Approve</button><button className="text-button danger" onClick={() => void reviewConnection(connection.id, "reject")} disabled={processing || connection.reviewStatus === "rejected"}>Reject</button></div></div>)}</div><p>{selectedConnections.length} candidate connection(s) selected. Approvals remain linked to the source excerpt.</p></div>}
           </div>
           <div className="resource-callout">
             <ShieldCheck size={16} />
@@ -1144,18 +1277,27 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
 function EvidenceInbox({
   processed,
   setProcessed,
+  setView,
 }: {
   processed: boolean;
   setProcessed: (v: boolean) => void;
+  setView: (v: View) => void;
 }) {
+  const { activeCaseId, resources: liveResources } = useWorkspace();
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState("FIR-1004");
+  const [sourceFilter, setSourceFilter] = useState("ALL");
+  const allEvidence = [...evidence, ...liveResources.filter((resource) => !evidence.some((item) => item.id === resource.id))];
+  const selectedEvidence = allEvidence.find((item) => item.id === selectedEvidenceId) ?? allEvidence[0];
+  const visibleEvidence = allEvidence.filter((item) => sourceFilter === "ALL" || item.type === sourceFilter);
+
   return (
     <>
       <PageTitle
-        eyebrow="CASE-1004 / EVIDENCE INBOX"
+        eyebrow={`${activeCaseId} / EVIDENCE INBOX`}
         title="Evidence workspace"
         copy="Process source records, preserve provenance, and review extracted intelligence."
         action={
-          <button className="secondary-button">
+          <button className="secondary-button" onClick={() => setView("resources")}>
             <UploadIcon /> Add evidence
           </button>
         }
@@ -1164,17 +1306,18 @@ function EvidenceInbox({
         <section className="panel evidence-list">
           <div className="evidence-toolbar">
             <div>
-              <strong>08</strong>
+                <strong>{allEvidence.length}</strong>
               <span>records in scope</span>
             </div>
-            <button className="filter-button">
-              <SlidersHorizontal size={14} /> Source type
+            <button className="filter-button" onClick={() => setSourceFilter((current) => current === "ALL" ? "FIR" : current === "FIR" ? "SURVEILLANCE" : current === "SURVEILLANCE" ? "FINANCIAL" : "ALL")}>
+              <SlidersHorizontal size={14} /> {sourceFilter === "ALL" ? "All sources" : sourceFilter}
             </button>
           </div>
-          {evidence.map((item, index) => (
+          {visibleEvidence.map((item, index) => (
             <button
-              className={`evidence-row ${item.id === "FIR-1004" ? "selected" : ""}`}
+              className={`evidence-row ${item.id === selectedEvidenceId ? "selected" : ""}`}
               key={item.id}
+              onClick={() => setSelectedEvidenceId(item.id)}
             >
               <span
                 className={`source-icon ${item.type.toLowerCase().replace(" ", "-")}`}
@@ -1192,15 +1335,15 @@ function EvidenceInbox({
               ) : (
                 <Check className="verified" size={15} />
               )}
-              {index < 5 && <span className="processed-label">processed</span>}
+              {("status" in item ? item.status !== "ready" : index < 5) && <span className="processed-label">processed</span>}
             </button>
           ))}
         </section>
         <section className="panel evidence-preview">
           <div className="preview-top">
             <div>
-              <span className="eyebrow">SELECTED SOURCE · FIR</span>
-              <h2>FIR-1004.pdf</h2>
+              <span className="eyebrow">SELECTED SOURCE · {selectedEvidence.type}</span>
+              <h2>{selectedEvidence.title}</h2>
             </div>
             <span className="verified-label">
               <Check size={13} /> Hash verified
@@ -1209,24 +1352,19 @@ function EvidenceInbox({
           <div className="document-preview">
             <div className="document-head">
               <span>FIRST INFORMATION REPORT</span>
-              <small>FIR-1004 · CASE-1004</small>
+              <small>{selectedEvidence.id} · {selectedEvidence.caseId}</small>
             </div>
             <div className="document-lines">
-              <h3>Incident report — Cafe Meridian</h3>
-              <p>
-                On 20 August 2026, information was received regarding an
-                incident at Cafe Meridian, Delhi.
-              </p>
-              <p>
-                Persons identified in the source context include{" "}
-                <mark>Rahul Sharma</mark>, <mark>Vikram Malhotra</mark> and{" "}
-                <mark>Rakesh Yadav</mark>. The related vehicle registry entry{" "}
-                <mark>UP14EF9090</mark> is referenced in the scene notes.
-              </p>
-              <p className="document-fade">
-                Source record continues with incident metadata and officer
-                observations…
-              </p>
+              {selectedEvidence.id === "FIR-1004" ? <>
+                <h3>Incident report — Cafe Meridian</h3>
+                <p>On 20 August 2026, information was received regarding an incident at Cafe Meridian, Delhi.</p>
+                <p>Persons identified in the source context include <mark>Rahul Sharma</mark>, <mark>Vikram Malhotra</mark> and <mark>Rakesh Yadav</mark>. The related vehicle registry entry <mark>UP14EF9090</mark> is referenced in the scene notes.</p>
+                <p className="document-fade">Source record continues with incident metadata and officer observations…</p>
+              </> : <>
+                <h3>{selectedEvidence.title}</h3>
+                <p>{selectedEvidence.excerpt}</p>
+                <p className="document-fade">Source record remains linked to its original hash and provenance metadata.</p>
+              </>}
             </div>
             <div className="document-stamp">
               SYNTHETIC
@@ -1290,28 +1428,37 @@ function NetworkView({
   selectedEdge,
   openRelationshipDrawer,
   setSelectedEdge,
+  globalSearch,
 }: {
   selectedEntity: string;
   setSelectedEntity: (id: string) => void;
   selectedEdge: string;
   setSelectedEdge: (id: string) => void;
   openRelationshipDrawer: () => void;
+  globalSearch: string;
 }) {
+  const { activeCaseId } = useWorkspace();
   const [networkMode, setNetworkMode] = useState("network");
-  const [graphSearch, setGraphSearch] = useState("");
+  const [graphSearch, setGraphSearch] = useState(globalSearch);
+  const [statusFilter, setStatusFilter] = useState<"all" | "observed" | "corroborated" | "predicted">("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (globalSearch.trim()) setGraphSearch(globalSearch);
+  }, [globalSearch]);
   return (
     <>
       <PageTitle
-        eyebrow="NETWORK ANALYSIS / CASE-1004"
+        eyebrow={`NETWORK ANALYSIS / ${activeCaseId}`}
         title="Neo4j knowledge graph"
         copy="Explore the evidence graph built from people, phones, vehicles, accounts, locations, cases, and source records."
         action={
           <div className="network-actions">
-            <button className="filter-button">
+            <button className={`filter-button ${filtersOpen ? "active" : ""}`} onClick={() => setFiltersOpen((open) => !open)}>
               <SlidersHorizontal size={14} /> Filters
             </button>
-            <button className="secondary-button">
-              <Network size={15} /> Expand 2 hops
+            <button className="secondary-button" onClick={() => setExpanded((value) => !value)}>
+              <Network size={15} /> {expanded ? "Collapse graph" : "Expand 2 hops"}
             </button>
           </div>
         }
@@ -1342,6 +1489,7 @@ function NetworkView({
         </div>
         <span className="network-count">Live graph view · Neo4j source</span>
       </div>
+      {filtersOpen && <div className="network-filter-panel panel"><strong>Relationship status</strong><div>{(["all", "observed", "corroborated", "predicted"] as const).map((status) => <button key={status} className={statusFilter === status ? "active" : ""} onClick={() => setStatusFilter(status)}>{status === "all" ? "All statuses" : status}</button>)}</div></div>}
       <div className="network-mode-summary">
         {networkMode === "network" && <><strong>Evidence relationship view</strong><span>Showing source-aware entities and relationships from the selected investigation scope.</span></>}
         {networkMode === "communities" && <><strong>Community view</strong><span>Clusters are grouped by connected evidence and jurisdiction. Select a node to inspect its supporting records.</span></>}
@@ -1363,6 +1511,9 @@ function NetworkView({
               openRelationshipDrawer();
             }}
             searchQuery={graphSearch}
+            statusFilter={statusFilter}
+            expanded={expanded}
+            caseId={activeCaseId}
           />
           <div className="graph-stats">
             <span>
@@ -1447,6 +1598,8 @@ function Intelligence({
   setSelectedEntity: (id: string) => void;
   setView: (v: View) => void;
 }) {
+  const { summary } = useWorkspace();
+  const [analysisRun, setAnalysisRun] = useState(false);
   return (
     <>
       <PageTitle
@@ -1454,11 +1607,12 @@ function Intelligence({
         title="What deserves attention"
         copy="Prioritised analytical signals, with the evidence and reasoning kept visible."
         action={
-          <button className="secondary-button">
+          <button className="secondary-button" onClick={() => setAnalysisRun(true)}>
             <Sparkles size={15} /> Run analysis
           </button>
         }
       />
+      {analysisRun && <div className="inline-notice"><Check size={14} /> Analysis refreshed from the current canonical relationship set.</div>}
       <div className="intelligence-grid">
         <section className="panel lead-list-panel">
           <PanelHeading
@@ -1466,7 +1620,7 @@ function Intelligence({
             action="Network view"
             onAction={() => setView("network")}
           />
-          {leads.map((lead) => (
+          {(summary?.leads || []).map((lead) => (
             <button
               className="intelligence-lead"
               key={lead.id}
@@ -1495,9 +1649,10 @@ function Intelligence({
               <ChevronRight size={17} />
             </button>
           ))}
+          {summary && summary.leads.length === 0 && <div className="empty-state">No graph leads are available for this case yet.</div>}
         </section>
         <section className="panel patterns-panel">
-          <PanelHeading title="Pattern detection" action="All patterns" />
+          <PanelHeading title="Pattern detection" />
           <p className="panel-intro">
             Rule-based signals found across the current evidence scope.
           </p>
@@ -1577,7 +1732,7 @@ function MatchingView({ setView }: { setView: (v: View) => void }) {
         <div className={`matching-icon ${matcher.tone}`}>{matcher.icon}</div>
         <div className="matching-card-head"><h2>{matcher.title}</h2><span className={`matching-status ${matcher.tone}`}>{matcher.status}</span></div>
         <p>{matcher.detail}</p>
-        <div className="matching-card-footer"><strong>{matcher.metric}</strong><button className="text-button" onClick={() => matcher.tone === "active" ? setView("network") : undefined}>{matcher.tone === "active" ? "Inspect graph" : "View requirements"} <ArrowRight size={13} /></button></div>
+        <div className="matching-card-footer"><strong>{matcher.metric}</strong>{matcher.tone === "active" ? <button className="text-button" onClick={() => setView("network")}>Inspect graph <ArrowRight size={13} /></button> : <span className="muted">Requirements pending</span>}</div>
       </section>)}
     </div>
     <section className="panel matching-review-panel">
@@ -1594,30 +1749,36 @@ function PhoneIcon() {
 }
 
 function Timeline() {
+  const { activeCaseId, summary } = useWorkspace();
+  const [filterType, setFilterType] = useState("ALL");
+  const liveTimeline = (summary?.activity || []).map((item) => [item.time, "—", activeCaseId, item.title, item.tone.toUpperCase()] as const);
+  const visibleTimeline = liveTimeline.filter(([, , , , type]) => filterType === "ALL" || type === filterType);
+  const timelineDates = liveTimeline.map(([date]) => date).sort();
+  const timelineWindow = timelineDates.length ? `${timelineDates[0]} – ${timelineDates[timelineDates.length - 1]}` : "No events available";
   return (
     <>
       <PageTitle
-        eyebrow="TEMPORAL ANALYSIS / CASE-1004"
+        eyebrow={`TEMPORAL ANALYSIS / ${activeCaseId}`}
         title="Investigation timeline"
         copy="Events are ordered from source timestamps. Use time to test convergence, sequence and overlap."
         action={
-          <button className="filter-button">
-            <SlidersHorizontal size={14} /> Filter dates
+          <button className="filter-button" onClick={() => setFilterType((current) => current === "ALL" ? "BLUE" : current === "BLUE" ? "GREEN" : current === "GREEN" ? "PURPLE" : "ALL")}>
+            <SlidersHorizontal size={14} /> {filterType === "ALL" ? "All event types" : filterType}
           </button>
         }
       />
       <div className="timeline-summary">
         <div>
           <span className="eyebrow">WINDOW</span>
-          <strong>01–26 AUG 2026</strong>
+            <strong>{timelineWindow}</strong>
         </div>
         <div>
           <span className="eyebrow">EVENTS</span>
-          <strong>08</strong>
+            <strong>{liveTimeline.length}</strong>
         </div>
         <div>
           <span className="eyebrow">SOURCE TYPES</span>
-          <strong>05</strong>
+            <strong>{new Set(liveTimeline.map(([, , , , type]) => type)).size}</strong>
         </div>
         <div className="timeline-legend">
           <span>
@@ -1639,11 +1800,11 @@ function Timeline() {
           <span>26 AUG</span>
         </div>
         <div className="timeline-line" />
-        {timeline.map(([date, time, place, title, type], index) => (
+        {visibleTimeline.map(([date, time, place, title, type], index) => (
           <div
             className={`timeline-event ${type === "INCIDENT" ? "milestone" : ""}`}
             style={{ marginLeft: `${index * 9 + 4}%` }}
-            key={title}
+            key={`${date}-${time}-${place}-${title}`}
           >
             <span className="timeline-marker" />
             <div className="timeline-card">
@@ -1704,17 +1865,19 @@ type ResourceVerification = {
 };
 
 function Integrity() {
+  const { activeCaseId, resources: workspaceResources } = useWorkspace();
   const [proofRun, setProofRun] = useState<ProofRun | null>(null);
   const [verification, setVerification] = useState<ProofRun["verification"]>();
   const [proofLoading, setProofLoading] = useState(true);
   const [localResources, setLocalResources] = useState<LocalResource[]>([]);
   const [resourceVerification, setResourceVerification] = useState<Record<string, ResourceVerification>>({});
   const [verifyingResource, setVerifyingResource] = useState<string | null>(null);
+  const [policyOpen, setPolicyOpen] = useState(false);
 
   async function loadProofRun() {
     setProofLoading(true);
     try {
-      const response = await fetch("/api/provenance?caseId=CASE-1004");
+      const response = await fetch(`/api/provenance?caseId=${encodeURIComponent(activeCaseId)}`);
       if (!response.ok) throw new Error("Proof trail unavailable");
       const data = (await response.json()) as ProofRun;
       setProofRun(data);
@@ -1735,9 +1898,29 @@ function Integrity() {
     setVerification(data);
   }
 
+  async function loadLocalResources() {
+    try {
+      const response = await fetch(`/api/resources?caseId=${encodeURIComponent(activeCaseId)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Resources unavailable");
+      const data = (await response.json()) as { resources: LocalResource[] };
+      setLocalResources(data.resources.filter((resource) => resource.id.startsWith("UPLOAD-")));
+    } catch {
+      setLocalResources([]);
+    }
+  }
+
   useEffect(() => {
     loadProofRun().catch(() => setProofLoading(false));
-    fetch("/api/resources").then((response) => response.ok ? response.json() : Promise.reject(new Error("Resources unavailable"))).then((data: { resources: LocalResource[] }) => setLocalResources(data.resources.filter((resource) => resource.id.startsWith("UPLOAD-")))).catch(() => setLocalResources([]));
+    void loadLocalResources();
+    const unsubscribeResources = subscribeWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, () => void loadLocalResources());
+    const unsubscribeIntegrity = subscribeWorkspaceEvent(WORKSPACE_EVENTS.integrityRefresh, () => {
+      void loadProofRun();
+      void loadLocalResources();
+    });
+    return () => {
+      unsubscribeResources();
+      unsubscribeIntegrity();
+    };
   }, []);
 
   async function verifyResource(resourceId: string) {
@@ -1751,6 +1934,23 @@ function Integrity() {
     }
   }
 
+  async function verifyAllResources() {
+    await Promise.all(localResources.map((resource) => verifyResource(resource.id)));
+  }
+
+  function downloadAuditLog() {
+    const audit = [
+      { time: "09:42", event: "Hash verification completed", scope: activeCaseId, actor: "Ankush Chauhan" },
+      { time: "09:18", event: "Entity resolution accepted", scope: "Raju → P001", actor: "Ankush Chauhan" },
+      { time: "Yesterday", event: "Predicted lead generated", scope: "Rahul ↔ Imran", actor: "Ingestion service" },
+    ];
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(audit, null, 2)], { type: "application/json" }));
+    link.download = "evidencegraph-audit-log.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
   return (
     <>
       <PageTitle
@@ -1758,15 +1958,16 @@ function Integrity() {
         title="Trust, access and audit"
         copy="Security controls are visible at the point where investigative work happens."
         action={
-          <button className="secondary-button">
+          <button className="secondary-button" onClick={() => setPolicyOpen((open) => !open)}>
             <LockKeyhole size={15} /> Access policy
           </button>
         }
       />
+      {policyOpen && <div className="inline-notice"><LockKeyhole size={14} /> Current role: Lead investigator · {activeCaseId} access is enabled for this workspace.</div>}
       <section className="panel proof-panel">
         <div className="proof-header">
           <div>
-            <span className="eyebrow">VERIFIABLE COMPUTATION / CASE-1004</span>
+            <span className="eyebrow">VERIFIABLE COMPUTATION / {activeCaseId}</span>
             <h2>Computation proof trail</h2>
             <p>Each step consumes the previous output and is linked to the previous event by SHA-256 hashes.</p>
           </div>
@@ -1837,7 +2038,7 @@ function Integrity() {
       )}
       <div className="integrity-grid">
         <section className="panel ledger-panel">
-          <PanelHeading title="Evidence integrity ledger" action="Verify all" />
+          <PanelHeading title="Evidence integrity ledger" action="Verify all" onAction={verifyAllResources} />
           <div className="ledger-intro">
             <div className="ledger-check">
               <ShieldCheck size={20} />
@@ -1872,7 +2073,7 @@ function Integrity() {
           ))}
         </section>
         <section className="panel access-panel">
-          <PanelHeading title="Role-based access" action="Manage roles" />
+          <PanelHeading title="Role-based access" action="Manage roles" onAction={() => setPolicyOpen((open) => !open)} />
           <div className="current-role">
             <div className="avatar">AM</div>
             <span>
@@ -1882,7 +2083,7 @@ function Integrity() {
             <span className="role-badge">INVESTIGATOR</span>
           </div>
           {[
-            ["CASE-1004", "Full access", true],
+            [activeCaseId, "Full access", true],
             ["CASE-1003", "Full access", true],
             ["CASE-1002", "Read only", true],
             ["CASE-2001", "Denied by policy", false],
@@ -1905,7 +2106,7 @@ function Integrity() {
         </section>
       </div>
       <section className="panel audit-panel">
-        <PanelHeading title="Recent audit trail" action="Export log" />
+        <PanelHeading title="Recent audit trail" action="Export log" onAction={downloadAuditLog} />
         {[
           [
             "09:42",
@@ -1928,11 +2129,11 @@ function Integrity() {
           [
             "04 Sep",
             "Evidence package ingested",
-            "8 records · CASE-1004",
+            `${workspaceResources.length} records · ${activeCaseId}`,
             "Forensic analyst",
           ],
         ].map(([time, title, detail, actor]) => (
-          <div className="audit-row" key={title}>
+          <div className="audit-row" key={`${time}-${title}-${detail}`}>
             <span>{time}</span>
             <span>
               <strong>{title}</strong>
