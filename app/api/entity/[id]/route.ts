@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getNeo4jDriver } from '../../../../lib/neo4j'
+import { getNeo4jDriver } from '@/lib/neo4j'
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params

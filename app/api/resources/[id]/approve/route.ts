@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getNeo4jDriver } from '../../../../../lib/neo4j'
-import { approveResource, getStoredResource, publicResource } from '../../../../../lib/resources'
+import { getNeo4jDriver } from '@/lib/neo4j'
+import { approveResource, getStoredResource, publicResource } from '@/lib/resources'
+import { appendIntegrityEvent } from '@/lib/integrity'
 
 export const runtime = 'nodejs'
 
@@ -18,8 +19,15 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           r.sources = row.evidence, r.resourceId = $resourceId, r.caseId = $caseId`, {
       connections: resource.connections, resourceId: resource.id, caseId: resource.caseId,
     })
+    const graphEvent = await appendIntegrityEvent({
+      resourceId: resource.id,
+      caseId: resource.caseId,
+      eventType: 'GRAPH_UPDATE_COMMITTED',
+      inputHashes: [resource.hash],
+      output: { resourceId: resource.id, connections: resource.connections, graphMutation: 'MERGE_RELATES_EDGES' },
+    })
     const approved = await approveResource(id)
-    return NextResponse.json({ resource: approved ? publicResource(approved) : null, approvedConnections: resource.connections.length, graph: 'neo4j' })
+    return NextResponse.json({ resource: approved ? publicResource(approved) : null, approvedConnections: resource.connections.length, graph: 'neo4j', integrityEvent: graphEvent })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Graph approval failed' }, { status: 503 })
   } finally {

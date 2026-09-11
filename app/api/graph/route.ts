@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import neo4j from 'neo4j-driver'
-import { getNeo4jDriver } from '../../../lib/neo4j'
+import { getNeo4jDriver } from '@/lib/neo4j'
 
 export async function GET(request: Request) {
   const limit = Math.min(Number(new URL(request.url).searchParams.get('limit')) || 220, 300)

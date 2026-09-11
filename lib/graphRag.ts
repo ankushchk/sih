@@ -1,5 +1,5 @@
 import type { Session } from 'neo4j-driver'
-import { getEmbeddingProvider } from './embeddings'
+import { getEmbeddingProvider } from '@/lib/embeddings'
 
 export type CanonicalEntity = { id: string; name: string; alias?: string; type: string }
 export type GraphFact = {

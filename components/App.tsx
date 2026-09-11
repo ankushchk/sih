@@ -36,8 +36,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { GraphScene } from "./GraphScene";
-import { AskPanel } from "./AskPanel";
+import { GraphScene } from "@/components/GraphScene";
+import { AskPanel } from "@/components/AskPanel";
 import {
   cases,
   entityById,
@@ -49,7 +49,7 @@ import {
   resources,
   timeline,
   type Resource,
-} from "../src/data";
+} from "@/src/data";
 
 type View =
   | "overview"
@@ -1685,10 +1685,31 @@ type ProofRun = {
   verification?: { valid: boolean; invalidEvent: string | null };
 };
 
+type LocalResource = {
+  id: string;
+  filename: string;
+  hash: string;
+  status: string;
+  integrityEntryHash?: string;
+};
+
+type ResourceVerification = {
+  valid: boolean;
+  committedHash?: string;
+  currentHash?: string;
+  merkleRoot?: string | null;
+  invalidDocument?: string | null;
+  invalidEvent?: string | null;
+  eventCount?: number;
+};
+
 function Integrity() {
   const [proofRun, setProofRun] = useState<ProofRun | null>(null);
   const [verification, setVerification] = useState<ProofRun["verification"]>();
   const [proofLoading, setProofLoading] = useState(true);
+  const [localResources, setLocalResources] = useState<LocalResource[]>([]);
+  const [resourceVerification, setResourceVerification] = useState<Record<string, ResourceVerification>>({});
+  const [verifyingResource, setVerifyingResource] = useState<string | null>(null);
 
   async function loadProofRun() {
     setProofLoading(true);
@@ -1716,7 +1737,19 @@ function Integrity() {
 
   useEffect(() => {
     loadProofRun().catch(() => setProofLoading(false));
+    fetch("/api/resources").then((response) => response.ok ? response.json() : Promise.reject(new Error("Resources unavailable"))).then((data: { resources: LocalResource[] }) => setLocalResources(data.resources.filter((resource) => resource.id.startsWith("UPLOAD-")))).catch(() => setLocalResources([]));
   }, []);
+
+  async function verifyResource(resourceId: string) {
+    setVerifyingResource(resourceId);
+    try {
+      const response = await fetch(`/api/resources/${resourceId}/verify`, { method: "POST" });
+      const data = (await response.json()) as ResourceVerification;
+      setResourceVerification((current) => ({ ...current, [resourceId]: data }));
+    } finally {
+      setVerifyingResource(null);
+    }
+  }
 
   return (
     <>
@@ -1771,6 +1804,37 @@ function Integrity() {
           </>
         )}
       </section>
+      {localResources.length > 0 && (
+        <section className="panel proof-panel local-integrity-panel">
+          <div className="proof-header">
+            <div>
+              <span className="eyebrow">LOCAL RESOURCE COMMITMENTS</span>
+              <h2>Uploaded document verification</h2>
+              <p>Each upload is a Merkle leaf and every processing step is chained to the committed document hash.</p>
+            </div>
+            <span className="proof-status verified"><i /> {localResources.length} COMMITTED</span>
+          </div>
+          <div className="proof-events">
+            {localResources.map((resource) => {
+              const result = resourceVerification[resource.id];
+              return (
+                <div className="proof-event" key={resource.id}>
+                  <div className="proof-event-details">
+                    <span><strong>{resource.filename}</strong><small>{resource.id} · {resource.status}</small></span>
+                    <span>Source hash <code>{resource.hash}</code></span>
+                    {result && <span>Merkle root <code>{result.merkleRoot || "UNAVAILABLE"}</code></span>}
+                    {result && <span>Chain events <code>{result.eventCount ?? 0}</code> · {result.invalidEvent || result.invalidDocument || "No invalid links"}</span>}
+                    <button className="secondary-button small" onClick={() => verifyResource(resource.id)} disabled={verifyingResource === resource.id}>
+                      {verifyingResource === resource.id ? "Verifying..." : result?.valid ? "Verified" : "Verify document"}
+                    </button>
+                    {result && <b className={result.valid ? "ledger-ok" : "ledger-bad"}>{result.valid ? "VALID" : "MISMATCH"}</b>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
       <div className="integrity-grid">
         <section className="panel ledger-panel">
           <PanelHeading title="Evidence integrity ledger" action="Verify all" />

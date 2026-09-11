@@ -40,7 +40,7 @@ export function getEmbeddingProvider(): EmbeddingProvider {
     if (!process.env.VOYAGE_API_KEY) throw new Error('VOYAGE_API_KEY is not set')
     cached = new VoyageEmbeddings(process.env.VOYAGE_API_KEY, process.env.VOYAGE_MODEL)
   } else {
-    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set')
+    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set. Add it to .env.local before using GraphRAG.')
     cached = new OpenAIEmbeddings(process.env.OPENAI_API_KEY, process.env.OPENAI_EMBEDDING_MODEL)
   }
   return cached

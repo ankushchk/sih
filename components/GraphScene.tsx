@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { DataSet } from 'vis-data/peer'
 import { Network } from 'vis-network/peer'
 import type { Edge, Node } from 'vis-network/peer'
-import { entityById, graphEdges, graphNodes, type GraphEdge, type GraphNode } from '../src/data'
+import { entityById, graphEdges, graphNodes, type GraphEdge, type GraphNode } from '@/src/data'
 
 type Props = { focusId?: string; onSelect?: (id: string) => void; communities?: boolean; searchQuery?: string }
 type GraphPayload = { source: string; nodes: GraphNode[]; edges: GraphEdge[] }

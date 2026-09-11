@@ -2,7 +2,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { PDFParse } from 'pdf-parse'
-import { people, secondaryEntities, type Entity } from '../src/data'
+import { people, secondaryEntities, type Entity } from '@/src/data'
+import { appendIntegrityEvent, commitDocument, hashValue } from '@/lib/integrity'
 
 export type CandidateConnection = {
   id: string
@@ -43,6 +44,9 @@ export type StoredResource = {
   text?: string
   extractions?: Extraction[]
   connections?: CandidateConnection[]
+  integrityEntryHash?: string
+  lastIntegrityEventHash?: string
+  merkleRoot?: string | null
 }
 
 const dataDir = path.resolve(process.cwd(), '.data')
@@ -120,7 +124,8 @@ export async function createResource(file: File, caseId: string, addedBy: string
   const storedPath = path.join(uploadDir, `${id}-${path.basename(file.name)}`)
   await ensureStorage()
   await writeFile(storedPath, buffer)
-  const resource: StoredResource = { id, filename: file.name, type: resourceType(file.name), title: file.name, caseId, timestamp: new Date().toISOString(), excerpt: 'Uploaded resource awaiting processing.', hash, integrity: 'verified', size: `${Math.max(file.size / 1024, 1).toFixed(1)} KB`, status: 'ready', entities: 0, relationships: 0, addedBy, storedPath }
+  const commitment = await commitDocument({ resourceId: id, caseId, filename: file.name, sourceHash: hash })
+  const resource: StoredResource = { id, filename: file.name, type: resourceType(file.name), title: file.name, caseId, timestamp: new Date().toISOString(), excerpt: 'Uploaded resource awaiting processing.', hash, integrity: 'verified', size: `${Math.max(file.size / 1024, 1).toFixed(1)} KB`, status: 'ready', entities: 0, relationships: 0, addedBy, storedPath, integrityEntryHash: commitment.entryHash }
   const resources = await readResources()
   resources.unshift(resource)
   await writeResources(resources)
@@ -140,6 +145,9 @@ export async function processResource(id: string) {
   resource.entities = extractions.length
   resource.relationships = connections.length
   resource.status = 'review'
+  await writeResources(resources)
+  const processingEvent = await appendIntegrityEvent({ resourceId: resource.id, caseId: resource.caseId, eventType: 'EXTRACTION_COMMITTED', inputHashes: [resource.hash], output: { textHash: hashValue(text), extractions, connections } })
+  resource.lastIntegrityEventHash = processingEvent.eventHash
   await writeResources(resources)
   return resource
 }

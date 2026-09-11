@@ -8,7 +8,7 @@ export type AskResult = { answer: string; citedSources: string[] }
 
 export async function answerQuestion(question: string, context: string): Promise<AskResult> {
   const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
+  if (!apiKey) throw new Error('OPENAI_API_KEY is not set. Add it to .env.local and restart the development server.')
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },

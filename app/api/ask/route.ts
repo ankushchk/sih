@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getNeo4jDriver } from '../../../lib/neo4j'
-import { answerQuestion } from '../../../lib/answerQuestion'
-import { buildContext, findMentionedEntities, getSubgraphFacts, loadCanonicalEntities, searchEvidence, type EvidenceMatch } from '../../../lib/graphRag'
+import { getNeo4jDriver } from '@/lib/neo4j'
+import { answerQuestion } from '@/lib/answerQuestion'
+import { buildContext, findMentionedEntities, getSubgraphFacts, loadCanonicalEntities, searchEvidence, type EvidenceMatch } from '@/lib/graphRag'
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { question?: string; caseId?: string } | null

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getNeo4jDriver } from '../../../lib/neo4j'
-import { buildProofRun, verifyProofRun, type ProofRun } from '../../../lib/provenance'
+import { getNeo4jDriver } from '@/lib/neo4j'
+import { buildProofRun, verifyProofRun, type ProofRun } from '@/lib/provenance'
 
 async function persistRun(run: ProofRun) {
   const session = getNeo4jDriver().session()

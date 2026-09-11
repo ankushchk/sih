@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { processResource, publicResource } from '../../../../../lib/resources'
+import { processResource, publicResource } from '@/lib/resources'
 
 export const runtime = 'nodejs'
 

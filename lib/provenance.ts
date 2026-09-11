@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { evidence, people, relationships, resources } from '../src/data'
+import { evidence, people, relationships, resources } from '@/src/data'
 
 export type ProofEventType =
   | 'RESOURCE_COMMITTED'
