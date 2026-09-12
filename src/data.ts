@@ -18,7 +18,7 @@ export type Evidence = {
   timestamp: string
   excerpt: string
   hash: string
-  integrity: 'verified' | 'mismatch'
+  integrity: 'verified' | 'mismatch' | 'unverified'
 }
 
 export type Resource = Evidence & {

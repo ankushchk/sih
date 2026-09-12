@@ -118,7 +118,7 @@ export function GraphScene({ focusId, onSelect, searchQuery = '', statusFilter =
         .some((value) => value!.toLowerCase().includes(normalizedSearch)))?.id
       : undefined
     const target = firstMatch || focusId
-    if (!target) return
+    if (!target || !payload.nodes.some((node) => node.id === target)) return
     network.selectNodes([target])
     network.focus(target, { scale: 1.15, animation: { duration: 450, easingFunction: 'easeInOutQuad' } })
   }, [focusId, payload, searchQuery])

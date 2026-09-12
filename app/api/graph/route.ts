@@ -14,12 +14,14 @@ export async function GET(request: Request) {
         MATCH (n:Entity)-[r]->(m:Entity)
         WHERE ($role <> 'Auditor' OR (coalesce(n.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(m.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(r.sensitivity, 'STANDARD') = 'STANDARD'))
           AND ($caseId = '' OR r.caseId = $caseId OR $caseId IN coalesce(r.caseIds, []))
+        WITH n, m, r LIMIT $limit
         RETURN collect(DISTINCT {id:n.id, name:n.name, type:n.type, alias:n.alias, jurisdiction:n.jurisdiction, sensitivity:coalesce(n.sensitivity, 'STANDARD')}) + collect(DISTINCT {id:m.id, name:m.name, type:m.type, alias:m.alias, jurisdiction:m.jurisdiction, sensitivity:coalesce(m.sensitivity, 'STANDARD')}) AS rawNodes
       }
       CALL {
         MATCH (n:Entity)-[r]->(m:Entity)
         WHERE ($role <> 'Auditor' OR (coalesce(n.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(m.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(r.sensitivity, 'STANDARD') = 'STANDARD'))
           AND ($caseId = '' OR r.caseId = $caseId OR $caseId IN coalesce(r.caseIds, []))
+        WITH n, m, r LIMIT $limit
         RETURN collect(DISTINCT {id:coalesce(r.id, n.id + "-" + m.id), source:n.id, target:m.id, type:coalesce(r.type, type(r)), status:coalesce(r.status, "observed"), sources:coalesce(r.sources, [r.source]), sensitivity:coalesce(r.sensitivity, 'STANDARD')}) AS edges
       }
       RETURN rawNodes, edges`, { limit: neo4j.int(limit), caseId, role })

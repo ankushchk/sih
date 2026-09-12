@@ -79,6 +79,12 @@ function App() {
     setSidebar(window.innerWidth > 980);
   }, []);
 
+  useEffect(() => {
+    setSelectedEntity("");
+    setSelectedEdge("");
+    setRelationshipDrawerOpen(false);
+  }, [activeCaseId]);
+
   if (screen === "landing")
     return <Landing onEnter={() => setScreen("login")} />;
   if (screen === "login") return <Login onLogin={(role) => { void fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role, userId: CURRENT_USER.id }) }); setScreen("app"); }} />;
@@ -905,7 +911,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
   const selectResource = async (item: Resource) => {
     setSelected(item);
     setReviewData(null);
-    if (!item.id.startsWith("UPLOAD-")) return;
+    if (!item.id.startsWith("UPLOAD-") && !item.id.startsWith("EP-DOC-")) return;
     try {
       const response = await fetch(`/api/resources/${item.id}`);
       if (!response.ok) return;
@@ -1260,10 +1266,11 @@ function EvidenceInbox({
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState<{ text?: string; extractions?: ResourceExtraction[] } | null>(null);
-  const allEvidence = [...evidence, ...liveResources.filter((resource) => !evidence.some((item) => item.id === resource.id))];
+  const allEvidence = activeCaseId === "CASE-EPSTEIN" ? liveResources : [...evidence, ...liveResources.filter((resource) => !evidence.some((item) => item.id === resource.id))];
   const selectedEvidence = allEvidence.find((item) => item.id === selectedEvidenceId) ?? allEvidence[0];
   const filteredEvidence = allEvidence.filter((item) => sourceFilter === "ALL" || item.type === sourceFilter);
   const visibleEvidence = showAllEvidence ? filteredEvidence : filteredEvidence.slice(0, 5);
+  if (!selectedEvidence) return <><PageTitle eyebrow={`${activeCaseId} / EVIDENCE INBOX`} title="Evidence workspace" copy="Process source records, preserve provenance, and review extracted intelligence." action={<button className="secondary-button" onClick={() => setView("resources")}><UploadIcon /> Add evidence</button>} /><div className="panel empty-state">No records are available for this case yet.</div></>;
 
   const selectEvidence = async (item: (typeof allEvidence)[number]) => {
     setSelectedEvidenceId(item.id);
@@ -1276,8 +1283,9 @@ function EvidenceInbox({
   };
 
   useEffect(() => {
-    const firstUploaded = liveResources.find((resource) => resource.id.startsWith("UPLOAD-"));
-    if (firstUploaded && selectedEvidenceId === "FIR-1004") void selectEvidence(firstUploaded);
+    const selectedIsCurrent = liveResources.some((resource) => resource.id === selectedEvidenceId);
+    const firstLive = liveResources[0];
+    if (firstLive && !selectedIsCurrent) void selectEvidence(firstLive);
   }, [liveResources]);
 
   const selectedExtractions: ResourceExtraction[] = selectedDetail?.extractions || (("extractions" in selectedEvidence && Array.isArray(selectedEvidence.extractions)) ? selectedEvidence.extractions : []);
@@ -1602,6 +1610,7 @@ function Intelligence({
   setView: (v: View) => void;
 }) {
   const { summary, patterns: livePatterns } = useWorkspace();
+  const potentialLead = livePatterns.find((pattern) => pattern.type === "POTENTIAL_ASSOCIATION");
   const [analysisRun, setAnalysisRun] = useState(false);
   return (
     <>
@@ -1681,18 +1690,17 @@ function Intelligence({
           {livePatterns.length === 0 && <div className="empty-state">No computed patterns are available for this case yet.</div>}
         </section>
       </div>
-      <section className="potential-lead panel">
+      {potentialLead && <section className="potential-lead panel">
         <div className="potential-icon">
           <GitBranch size={20} />
         </div>
         <div>
           <span className="eyebrow">PREDICTED / POTENTIAL ASSOCIATION</span>
           <h2>
-            Rahul Sharma <span>· · ·</span> Imran Ali
+            {potentialLead.source?.name || "Entity"} <span>· · ·</span> {potentialLead.target?.name || potentialLead.relationship || "Entity"}
           </h2>
           <p>
-            Score <b>74%</b> · Common intermediary: Vikram · Connected cases ·
-            Temporal overlap
+            Score <b>{Math.round((potentialLead.score || 0) * 100)}%</b> · {potentialLead.signals.join(" · ")}
           </p>
         </div>
         <div className="potential-note">
@@ -1702,7 +1710,7 @@ function Intelligence({
         <button className="text-button" onClick={() => setView("network")}>
           Inspect lead <ArrowRight size={14} />
         </button>
-      </section>
+      </section>}
       <AskPanel
         onEntityClick={(id) => {
           setSelectedEntity(id);

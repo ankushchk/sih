@@ -1,4 +1,5 @@
 import type { Session } from 'neo4j-driver'
+import neo4j from 'neo4j-driver'
 import { getEmbeddingProvider } from '@/lib/embeddings'
 
 export type CanonicalEntity = { id: string; name: string; alias?: string; type: string }
@@ -68,24 +69,29 @@ export async function getSubgraphFacts(session: Session, entityIds: string[], ca
 }
 
 export async function searchEvidence(session: Session, question: string, caseId: string, topK = 5): Promise<EvidenceMatch[]> {
-  const provider = getEmbeddingProvider()
-  const [queryEmbedding] = await provider.embed([question])
-  const result = await session.run(
-    `CALL db.index.vector.queryNodes('evidenceEmbeddings', $topK, $embedding)
-     YIELD node, score
-     WHERE $caseId = '' OR node.caseId = $caseId OR node.caseId IS NULL
-     RETURN node.id AS id, node.text AS text, node.sourceId AS sourceId,
-       node.sourceType AS sourceType, node.caseId AS caseId, score`,
-    { topK, embedding: queryEmbedding, caseId },
-  )
-  return result.records.map((record) => ({
-    id: record.get('id') as string,
-    text: record.get('text') as string,
-    sourceId: record.get('sourceId') as string,
-    sourceType: record.get('sourceType') as string,
-    caseId: (record.get('caseId') as string | null) ?? undefined,
-    score: Number(record.get('score')),
-  }))
+  try {
+    const provider = getEmbeddingProvider()
+    const [queryEmbedding] = await provider.embed([question])
+    const result = await session.run(
+      `CALL db.index.vector.queryNodes('evidenceEmbeddings', $topK, $embedding)
+       YIELD node, score
+       WHERE $caseId = '' OR node.caseId = $caseId OR node.caseId IS NULL
+       RETURN node.id AS id, node.text AS text, node.sourceId AS sourceId,
+         node.sourceType AS sourceType, node.caseId AS caseId, score`,
+      { topK, embedding: queryEmbedding, caseId },
+    )
+    if (result.records.length) return result.records.map((record) => ({ id: record.get('id') as string, text: record.get('text') as string, sourceId: record.get('sourceId') as string, sourceType: record.get('sourceType') as string, caseId: (record.get('caseId') as string | null) ?? undefined, score: Number(record.get('score')) }))
+  } catch (error) {
+    console.warn('Vector evidence search unavailable; using full-text retrieval:', error instanceof Error ? error.message : error)
+  }
+  const terms = question.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter((term) => term.length > 2).slice(0, 12)
+  if (!terms.length) return []
+  const result = await session.run(`CALL db.index.fulltext.queryNodes('evidenceText', $query)
+    YIELD node, score
+    WHERE $caseId = '' OR node.caseId = $caseId OR node.caseId IS NULL
+    RETURN node.id AS id, node.text AS text, node.sourceId AS sourceId, node.sourceType AS sourceType, node.caseId AS caseId, score
+    LIMIT $topK`, { query: terms.join(' OR '), caseId, topK: neo4j.int(topK) })
+  return result.records.map((record) => ({ id: record.get('id') as string, text: record.get('text') as string, sourceId: record.get('sourceId') as string, sourceType: record.get('sourceType') as string, caseId: (record.get('caseId') as string | null) ?? undefined, score: Number(record.get('score')) }))
 }
 
 export function buildContext(facts: GraphFact[], evidence: EvidenceMatch[], caseId: string): string {

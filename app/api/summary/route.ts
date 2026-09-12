@@ -34,12 +34,14 @@ export async function GET(request: Request) {
   try {
     const caseResult = await session.run(`MATCH (c:Case {id: $caseId}) RETURN c.id AS id, c.title AS title, coalesce(c.status, 'ACTIVE') AS status, coalesce(c.priority, 'UNSPECIFIED') AS priority, coalesce(c.jurisdiction, 'UNSPECIFIED') AS jurisdiction`, { caseId })
     const caseCountResult = await session.run(`MATCH (c:Case) RETURN count(c) AS total, count(CASE WHEN coalesce(c.status, 'ACTIVE') = 'ACTIVE' THEN 1 END) AS active`)
+    const evidenceResult = await session.run(`MATCH (doc:EvidenceChunk) WHERE doc.caseId = $caseId RETURN count(doc) AS count`, { caseId })
     const graphResult = await session.run(`OPTIONAL MATCH (a:Entity)-[r]-(b:Entity)
         WHERE ($role <> 'Auditor' OR (coalesce(a.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(b.sensitivity, 'STANDARD') = 'STANDARD' AND (r IS NULL OR coalesce(r.sensitivity, 'STANDARD') = 'STANDARD')))
           AND ($caseId = '' OR r IS NULL OR r.caseId = $caseId OR $caseId IN coalesce(r.caseIds, []))
         RETURN count(DISTINCT r) AS relationshipCount,
           count(DISTINCT CASE WHEN r.status = 'predicted' THEN r END) AS openLeads,
-          count(DISTINCT CASE WHEN r.resourceId IS NOT NULL THEN r END) AS inGraph` , { caseId, role })
+          count(DISTINCT CASE WHEN r.resourceId IS NOT NULL THEN r END) AS inGraph,
+          count(DISTINCT a.id) + count(DISTINCT b.id) AS entityCount` , { caseId, role })
     const leadResult = await session.run(`MATCH (n:Entity)-[r]-(other:Entity)
         WHERE ($role <> 'Auditor' OR (coalesce(n.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(other.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(r.sensitivity, 'STANDARD') = 'STANDARD'))
           AND ($caseId = '' OR r.caseId = $caseId OR $caseId IN coalesce(r.caseIds, []))
@@ -66,8 +68,9 @@ export async function GET(request: Request) {
         signals: [`${degree} graph relationships`, `${caseCount} case context${caseCount === 1 ? '' : 's'}`],
       }
     })
-    const evidenceRecords = resources.length
-    const processedRecords = processed.length
+    const evidenceRecords = resources.length || numberValue(evidenceResult.records[0]?.get('count'))
+    const processedRecords = resources.length ? processed.length : evidenceRecords
+    const resolvedEntities = resources.length ? entityIds.size : numberValue(graph.get('entityCount'))
     return NextResponse.json({
       caseId,
       case: {
@@ -80,15 +83,15 @@ export async function GET(request: Request) {
       metrics: {
         activeCases: numberValue(caseCounts.get('active')),
         evidenceRecords,
-        entitiesResolved: entityIds.size,
+        entitiesResolved: resolvedEntities,
         openLeads: numberValue(graph.get('openLeads')),
         processedRecords,
         processingPercent: evidenceRecords ? Math.round((processedRecords / evidenceRecords) * 100) : 0,
         pipeline: {
           ingested: evidenceRecords,
           extracted: processedRecords,
-          resolved: entityIds.size,
-          inGraph: approved.reduce((sum, resource) => sum + resource.relationships, 0) || numberValue(graph.get('inGraph')),
+          resolved: resolvedEntities,
+          inGraph: approved.reduce((sum, resource) => sum + resource.relationships, 0) || numberValue(graph.get('relationshipCount')),
         },
       },
       lead: leads[0] || null,

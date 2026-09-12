@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useWorkspace } from '@/components/WorkspaceProvider'
 
 type AskResponse = {
@@ -13,11 +13,15 @@ type AskResponse = {
 }
 
 export function AskPanel({ onCiteClick, onEntityClick }: { onCiteClick?: (sourceId: string) => void; onEntityClick?: (id: string) => void }) {
-  const { activeCaseId } = useWorkspace()
-  const [question, setQuestion] = useState('Why is Vikram Malhotra considered a potential intermediary?')
+  const { activeCaseId, summary } = useWorkspace()
+  const [question, setQuestion] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<AskResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setQuestion(summary?.lead ? `Why is ${summary.lead.name} structurally significant in this case?` : `What evidence is available for ${activeCaseId}?`)
+  }, [activeCaseId, summary?.lead?.name])
 
   async function handleAsk() {
     if (!question.trim() || loading) return

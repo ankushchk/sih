@@ -40,10 +40,12 @@ export async function GET(request: Request) {
       RETURN event.id AS id, event.callerPhone AS caller, event.receiverPhone AS receiver,
         toString(event.timestamp) AS timestamp, event.caseId AS caseId, event.source AS source`, { caseId })
     const events = eventsResult.records.map((record) => ({ id: record.get('id'), caller: record.get('caller'), receiver: record.get('receiver'), timestamp: record.get('timestamp'), caseId: record.get('caseId'), source: record.get('source') })) as CallEvent[]
-    const peopleResult = await session.run(`MATCH (person:Entity {type: 'PERSON'}) RETURN person.id AS id, person.name AS name`)
+    const peopleResult = await session.run(`MATCH (person:Entity {type: 'PERSON'})-[rel]-(other:Entity)
+      WHERE $caseId = '' OR rel.caseId = $caseId OR $caseId IN coalesce(rel.caseIds, [])
+      RETURN DISTINCT person.id AS id, person.name AS name LIMIT 200`, { caseId })
     const people = peopleResult.records.map((record) => ({ id: record.get('id') as string, name: record.get('name') as string }))
     const edgeResult = await session.run(`MATCH (a:Entity {type: 'PERSON'})-[r]-(b:Entity {type: 'PERSON'})
-      WHERE $caseId = '' OR r.caseId = $caseId OR r.caseId IS NULL
+      WHERE $caseId = '' OR r.caseId = $caseId OR $caseId IN coalesce(r.caseIds, [])
       RETURN a.id AS a, b.id AS b, collect(DISTINCT r.caseId) AS cases, collect(DISTINCT b.id) AS neighborsA`, { caseId })
     const direct = new Set<string>()
     const casesByPerson = new Map<string, Set<string>>()

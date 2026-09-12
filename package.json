@@ -11,6 +11,7 @@
     "migrate:remove-demo-leads": "tsx scripts/remove-demo-predicted-links.ts",
     "migrate:sensitivity": "tsx scripts/migrate-sensitivity.ts",
     "migrate:relationship-cases": "tsx scripts/migrate-relationship-cases.ts",
+    "import:epstein": "tsx scripts/import-epstein-corpus.ts",
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",

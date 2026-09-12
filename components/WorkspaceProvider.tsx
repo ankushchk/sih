@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { resources as demoResources, type Resource } from "@/src/data";
+import { type Resource } from "@/src/data";
 import { subscribeWorkspaceEvent, WORKSPACE_EVENTS } from "@/lib/workspaceEvents";
 
 export type WorkspaceResource = Resource & {
@@ -50,7 +50,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [activeCaseId, setActiveCaseId] = useState("CASE-1004");
   const [role, setRole] = useState<WorkspaceRole>('Investigator');
   const [cases, setCases] = useState<WorkspaceCase[]>([]);
-  const [resources, setResources] = useState<WorkspaceResource[]>(demoResources.filter((resource) => resource.caseId === activeCaseId || resource.caseId === "MULTI-CASE"));
+  const [resources, setResources] = useState<WorkspaceResource[]>([]);
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null);
   const [patterns, setPatterns] = useState<WorkspacePattern[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,9 +61,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (!response.ok) throw new Error("Resource list unavailable");
       const data = (await response.json()) as { resources: WorkspaceResource[] };
       setResources((current) => {
-        const merged = new Map(current.map((resource) => [resource.id, resource]));
-        data.resources.forEach((resource) => merged.set(resource.id, { ...merged.get(resource.id), ...resource }));
-        return Array.from(merged.values());
+        return data.resources;
       });
       setError(null);
     } catch (cause) {
@@ -116,10 +114,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void refreshSession();
     void refreshPatterns();
     const unsubscribe = subscribeWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, () => { void refreshResources(); void refreshSummary(); });
-    const interval = window.setInterval(() => { void refreshResources(); void refreshSummary(); void refreshCases(); void refreshSession(); void refreshPatterns(); }, 5000);
     return () => {
       unsubscribe();
-      window.clearInterval(interval);
     };
   }, []);
 
@@ -127,6 +123,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     void refreshResources();
     void refreshSummary();
     void refreshPatterns();
+    const interval = window.setInterval(() => { void refreshResources(); void refreshSummary(); void refreshPatterns(); }, 5000);
+    return () => window.clearInterval(interval);
   }, [activeCaseId]);
 
   return <WorkspaceContext.Provider value={{ activeCaseId, setActiveCaseId, role, cases, resources, summary, patterns, loading, error, refreshResources }}>{children}</WorkspaceContext.Provider>;

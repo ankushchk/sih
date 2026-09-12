@@ -10,6 +10,17 @@ export const runtime = 'nodejs'
 export async function GET(request: Request) {
   const caseId = new URL(request.url).searchParams.get('caseId') || undefined
   const resources = await listStoredResources(caseId)
+  if (caseId === 'CASE-EPSTEIN' && resources.length === 0) {
+    const session = getNeo4jDriver().session()
+    try {
+      const result = await session.run(`MATCH (doc:EvidenceChunk {caseId: $caseId})
+        RETURN doc.id AS id, doc.sourceId AS sourceId, doc.sourceType AS sourceType, doc.text AS text,
+          doc.dateStart AS dateStart, doc.dateEnd AS dateEnd LIMIT 100`, { caseId })
+      return NextResponse.json({ resources: result.records.map((record) => ({ id: record.get('id'), filename: `${record.get('sourceId')}.txt`, type: record.get('sourceType') || 'CORPUS DOCUMENT', title: record.get('sourceId'), caseId, timestamp: record.get('dateStart') || record.get('dateEnd') || 'Corpus record', excerpt: String(record.get('text') || '').replace(/\s+/g, ' ').slice(0, 280), hash: `external:${record.get('sourceId')}`, integrity: 'unverified', size: 'Corpus record', status: 'processed', entities: 0, relationships: 0, addedBy: 'Epstein document corpus' })) })
+    } finally {
+      await session.close()
+    }
+  }
   return NextResponse.json({ resources: resources.map(publicResource) })
 }
 
