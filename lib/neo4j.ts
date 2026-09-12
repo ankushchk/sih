@@ -4,6 +4,7 @@ let driver: Driver | undefined
 
 export function getNeo4jDriver() {
   if (!driver) {
+    if (process.env.VERCEL && !process.env.NEO4J_URI) throw new Error('NEO4J_URI is not configured in the deployment environment. Add a remote Neo4j/Aura connection string; localhost is unavailable inside Vercel functions.')
     const uri = process.env.NEO4J_URI || 'bolt://localhost:7687'
     const user = process.env.NEO4J_USER || 'neo4j'
     const password = process.env.NEO4J_PASSWORD || 'evidencegraph'
