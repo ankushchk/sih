@@ -10,6 +10,7 @@
     "migrate:cdr-events": "tsx scripts/migrate-cdr-events.ts",
     "migrate:remove-demo-leads": "tsx scripts/remove-demo-predicted-links.ts",
     "migrate:sensitivity": "tsx scripts/migrate-sensitivity.ts",
+    "migrate:relationship-cases": "tsx scripts/migrate-relationship-cases.ts",
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",

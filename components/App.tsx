@@ -46,7 +46,6 @@ import {
   entityById,
   evidence,
   people,
-  patterns,
   relationships,
   resources,
   type Resource,
@@ -61,6 +60,7 @@ type View =
   | "intelligence"
   | "matching"
   | "timeline"
+  | "security"
   | "integrity";
 
 function App() {
@@ -75,6 +75,10 @@ function App() {
   const [processed, setProcessed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
+  useEffect(() => {
+    setSidebar(window.innerWidth > 980);
+  }, []);
+
   if (screen === "landing")
     return <Landing onEnter={() => setScreen("login")} />;
   if (screen === "login") return <Login onLogin={(role) => { void fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role, userId: CURRENT_USER.id }) }); setScreen("app"); }} />;
@@ -84,6 +88,12 @@ function App() {
     relationships.find((item) => item.id === selectedEdge) ?? relationships[1];
   const edgeSource = entityById(edge.source)?.name ?? edge.source;
   const edgeTarget = entityById(edge.target)?.name ?? edge.target;
+
+  const createRelationshipResource = async () => {
+    await fetch('/api/resources/manual', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caseId: activeCaseId, source: edge.source, target: edge.target, sourceName: edgeSource, targetName: edgeTarget, type: edge.type, confidence: edge.confidence, note: `Investigator note: ${edgeSource} and ${edgeTarget} are being reviewed for a ${edge.type.replaceAll('_', ' ').toLowerCase()} relationship.` }) });
+    emitWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, { caseId: activeCaseId });
+    setView('resources');
+  };
 
   return (
     <div className="app-shell">
@@ -173,18 +183,18 @@ function App() {
             badge={summary ? String(summary.metrics.entitiesResolved) : "—"}
           />
           <div className="nav-section">CONTROL</div>
-          <NavItem
-            icon={<ShieldCheck size={17} />}
-            label="Security & access"
+            <NavItem
+            icon={<Fingerprint size={17} />}
+            label="Evidence integrity"
             active={view === "integrity"}
             onClick={() => setView("integrity")}
             compact={!sidebar}
           />
           <NavItem
-            icon={<Fingerprint size={17} />}
-            label="Evidence integrity"
-            active={view === "integrity"}
-            onClick={() => setView("integrity")}
+            icon={<ShieldCheck size={17} />}
+            label="Security & access"
+            active={view === "security"}
+            onClick={() => setView("security")}
             compact={!sidebar}
           />
         </nav>
@@ -278,6 +288,7 @@ function App() {
           )}
           {view === "timeline" && <Timeline />}
           {view === "matching" && <MatchingView setView={setView} />}
+          {view === "security" && <SecurityAccess />}
           {view === "integrity" && <Integrity />}
         </div>
       </main>
@@ -338,6 +349,9 @@ function App() {
           </div>
           <button className="full-button" onClick={() => setView("evidence")}>
             Open supporting evidence <ArrowRight size={15} />
+          </button>
+          <button className="text-button" onClick={() => void createRelationshipResource()}>
+            Create investigator evidence note <ArrowRight size={14} />
           </button>
         </aside>
       )}
@@ -651,6 +665,7 @@ function Overview({
           tone="purple"
         />
       </div>
+      <p className="lead-explainer"><Sparkles size={13} /> Open leads are entities ranked as structurally significant through connectivity or bridge signals and not yet reviewed by an investigator.</p>
       <div className="overview-grid overview-single">
         <section className="panel case-panel">
           <PanelHeading
@@ -851,7 +866,7 @@ function Cases({ setView }: { setView: (v: View) => void }) {
 }
 
 function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
-  const { activeCaseId } = useWorkspace();
+  const { activeCaseId, role } = useWorkspace();
   const [items, setItems] = useState<Resource[]>(resources);
   const [selected, setSelected] = useState<Resource>(resources[0]);
   const [query, setQuery] = useState("");
@@ -1046,7 +1061,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
         eyebrow={`RESOURCE LIBRARY / ${activeCaseId}`}
         title="Explore your evidence"
         copy="Add source material, review extraction, and follow every resource into the knowledge graph."
-        action={
+        action={role === "Auditor" ? undefined : (
           <label className="primary-button upload-label">
             <ArrowRight size={15} /> {uploading ? "Uploading..." : "Add resource"}
             <input
@@ -1060,7 +1075,7 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
                 }}
             />
           </label>
-        }
+        )}
       />
       <div className="resource-layout">
         <section className="panel resource-table">
@@ -1193,14 +1208,14 @@ function ResourceLibrary({ setView }: { setView: (v: View) => void }) {
                     : "Ready for processing"}
                 </h3>
               </div>
-              <button
+              {role !== "Auditor" && <button
                 className="secondary-button small"
                 onClick={selected.status === "ready" || selected.status === "failed" ? processSelected : selected.status === "processing" ? undefined : () => setView("network")}
                 disabled={processing || selected.status === "processing"}
               >
                 {selected.status === "ready" || selected.status === "failed" ? (processing ? "Processing..." : selected.status === "failed" ? "Retry processing" : "Process evidence") : selected.status === "processing" ? "Processing..." : <>Explore graph <Network size={14} /></>}
-              </button>
-              {selected.status === "review" && <button className="primary-button small" onClick={approveSelected} disabled={processing}>{processing ? "Approving..." : "Approve connections"} <Check size={14} /></button>}
+              </button>}
+              {role !== "Auditor" && selected.status === "review" && <button className="primary-button small" onClick={approveSelected} disabled={processing}>{processing ? "Approving..." : "Approve connections"} <Check size={14} /></button>}
             </div>
             {selected.processingError && <div className="resource-error"><CircleAlert size={14} /> {selected.processingError}</div>}
             <div className="impact-list">
@@ -1239,14 +1254,49 @@ function EvidenceInbox({
   setProcessed: (v: boolean) => void;
   setView: (v: View) => void;
 }) {
-  const { activeCaseId, resources: liveResources } = useWorkspace();
+  type ResourceExtraction = { entityId: string; canonicalName: string; rawMention: string; type: string; confidence: number };
+  const { activeCaseId, resources: liveResources, role } = useWorkspace();
   const [selectedEvidenceId, setSelectedEvidenceId] = useState("FIR-1004");
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [showAllEvidence, setShowAllEvidence] = useState(false);
+  const [selectedDetail, setSelectedDetail] = useState<{ text?: string; extractions?: ResourceExtraction[] } | null>(null);
   const allEvidence = [...evidence, ...liveResources.filter((resource) => !evidence.some((item) => item.id === resource.id))];
   const selectedEvidence = allEvidence.find((item) => item.id === selectedEvidenceId) ?? allEvidence[0];
   const filteredEvidence = allEvidence.filter((item) => sourceFilter === "ALL" || item.type === sourceFilter);
   const visibleEvidence = showAllEvidence ? filteredEvidence : filteredEvidence.slice(0, 5);
+
+  const selectEvidence = async (item: (typeof allEvidence)[number]) => {
+    setSelectedEvidenceId(item.id);
+    setSelectedDetail(null);
+    if (!item.id.startsWith("UPLOAD-")) return;
+    const response = await fetch(`/api/resources/${item.id}?includeText=1`, { cache: "no-store" }).catch(() => null);
+    if (!response?.ok) return;
+    const data = await response.json() as { resource?: { text?: string; extractions?: ResourceExtraction[] } };
+    if (data.resource) setSelectedDetail({ text: data.resource.text, extractions: data.resource.extractions });
+  };
+
+  useEffect(() => {
+    const firstUploaded = liveResources.find((resource) => resource.id.startsWith("UPLOAD-"));
+    if (firstUploaded && selectedEvidenceId === "FIR-1004") void selectEvidence(firstUploaded);
+  }, [liveResources]);
+
+  const selectedExtractions: ResourceExtraction[] = selectedDetail?.extractions || (("extractions" in selectedEvidence && Array.isArray(selectedEvidence.extractions)) ? selectedEvidence.extractions : []);
+  const selectedText = selectedDetail?.text || selectedEvidence.excerpt;
+  const aliases = selectedExtractions.filter((item) => item.rawMention.toLowerCase() !== item.canonicalName.toLowerCase());
+  const selectedStatus = "status" in selectedEvidence ? selectedEvidence.status : "processed";
+  const highlightText = (text: string) => {
+    const mentions = Array.from(new Set(selectedExtractions.flatMap((item) => [item.rawMention, item.canonicalName]).filter(Boolean))).sort((a, b) => b.length - a.length);
+    if (!mentions.length) return text;
+    const expression = new RegExp(`(${mentions.map((mention) => mention.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+    return text.split(expression).map((part, index) => mentions.some((mention) => mention.toLowerCase() === part.toLowerCase()) ? <mark key={index}>{part}</mark> : <span key={index}>{part}</span>);
+  };
+
+  const processEvidence = async () => {
+    if (!selectedEvidence.id.startsWith("UPLOAD-") || role === "Auditor") return;
+    setProcessed(true);
+    await fetch(`/api/resources/${selectedEvidence.id}/process`, { method: "POST" });
+    emitWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, selectedEvidence);
+  };
 
   return (
     <>
@@ -1275,7 +1325,7 @@ function EvidenceInbox({
             <button
               className={`evidence-row ${item.id === selectedEvidenceId ? "selected" : ""}`}
               key={item.id}
-              onClick={() => setSelectedEvidenceId(item.id)}
+              onClick={() => void selectEvidence(item)}
             >
               <span
                 className={`source-icon ${item.type.toLowerCase().replace(" ", "-")}`}
@@ -1310,20 +1360,13 @@ function EvidenceInbox({
           </div>
           <div className="document-preview">
             <div className="document-head">
-              <span>FIRST INFORMATION REPORT</span>
+              <span>{selectedEvidence.type}</span>
               <small>{selectedEvidence.id} · {selectedEvidence.caseId}</small>
             </div>
             <div className="document-lines">
-              {selectedEvidence.id === "FIR-1004" ? <>
-                <h3>Incident report — Cafe Meridian</h3>
-                <p>On 20 August 2026, information was received regarding an incident at Cafe Meridian, Delhi.</p>
-                <p>Persons identified in the source context include <mark>Rahul Sharma</mark>, <mark>Vikram Malhotra</mark> and <mark>Rakesh Yadav</mark>. The related vehicle registry entry <mark>UP14EF9090</mark> is referenced in the scene notes.</p>
-                <p className="document-fade">Source record continues with incident metadata and officer observations…</p>
-              </> : <>
-                <h3>{selectedEvidence.title}</h3>
-                <p>{selectedEvidence.excerpt}</p>
-                <p className="document-fade">Source record remains linked to its original hash and provenance metadata.</p>
-              </>}
+              <h3>{selectedEvidence.title}</h3>
+              <p>{highlightText(selectedText)}</p>
+              <p className="document-fade">Source record remains linked to its original hash and provenance metadata.</p>
             </div>
             <div className="document-stamp">
               SYNTHETIC
@@ -1336,41 +1379,27 @@ function EvidenceInbox({
               <div>
                 <span className="eyebrow">EXTRACTION RESULT</span>
                 <h3>
-                  {processed
-                    ? "Entities resolved into graph"
-                    : "Ready for processing"}
+                  {selectedStatus === "ready" ? "Ready for processing" : selectedStatus === "processing" ? "Processing source record" : "Entities resolved into graph"}
                 </h3>
               </div>
-              <button
+              {selectedEvidence.id.startsWith("UPLOAD-") && role !== "Auditor" && <button
                 className="primary-button small"
-                onClick={() => setProcessed(true)}
+                onClick={() => void processEvidence()}
               >
                 {processed ? "Processed" : "Process evidence"}{" "}
                 <BrainCircuit size={14} />
-              </button>
+              </button>}
             </div>
             <div className="entity-chips">
-              <span className="entity-chip person">
-                <UserRound size={13} /> Rahul Sharma <small>P001</small>
-              </span>
-              <span className="entity-chip person">
-                <UserRound size={13} /> Vikram Malhotra <small>P003</small>
-              </span>
-              <span className="entity-chip person">
-                <UserRound size={13} /> Rakesh Yadav <small>P004</small>
-              </span>
-              <span className="entity-chip location">
-                <Globe2 size={13} /> Cafe Meridian <small>L003</small>
-              </span>
+              {selectedExtractions.map((item) => <span className={`entity-chip ${item.type.toLowerCase()}`} key={item.entityId}><UserRound size={13} /> {item.canonicalName} <small>{item.entityId}</small></span>)}
+              {!selectedExtractions.length && <span className="muted">{"entities" in selectedEvidence && selectedEvidence.entities ? `${selectedEvidence.entities} indexed entities are recorded for this source.` : "No extracted entities for this resource yet."}</span>}
             </div>
-            <div className="resolution-callout">
+            {aliases.length > 0 && <div className="resolution-callout">
               <GitBranch size={15} />
               <span>
-                <strong>Entity resolution applied</strong> “Raju” and “Vicky”
-                matched to canonical records P001 and P003. Original mentions
-                remain attached to this source.
+                <strong>Entity resolution applied</strong> {aliases.map((item) => `“${item.rawMention}” → ${item.canonicalName}`).join(" · ")}. Original mentions remain attached to this source.
               </span>
-            </div>
+            </div>}
           </div>
         </section>
       </div>
@@ -1402,6 +1431,10 @@ function NetworkView({
   const [statusFilter, setStatusFilter] = useState<"all" | "observed" | "corroborated" | "predicted">("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [pathFrom, setPathFrom] = useState<string>();
+  const [pathTo, setPathTo] = useState<string>();
+  const [pathNodes, setPathNodes] = useState<string[]>([]);
+  const [pathEdges, setPathEdges] = useState<string[]>([]);
   useEffect(() => {
     if (globalSearch.trim()) setGraphSearch(globalSearch);
   }, [globalSearch]);
@@ -1416,7 +1449,7 @@ function NetworkView({
             <button className={`filter-button ${filtersOpen ? "active" : ""}`} onClick={() => setFiltersOpen((open) => !open)}>
               <SlidersHorizontal size={14} /> Filters
             </button>
-            <button className="secondary-button" onClick={() => setExpanded((value) => !value)}>
+            <button className="secondary-button" disabled={!selectedEntity} title={!selectedEntity ? "Select a node first" : undefined} onClick={() => setExpanded((value) => !value)}>
               <Network size={15} /> {expanded ? "Collapse graph" : "Expand 2 hops"}
             </button>
           </div>
@@ -1454,6 +1487,7 @@ function NetworkView({
         {networkMode === "communities" && <><strong>Community view</strong><span>Clusters are grouped by connected evidence and jurisdiction. Select a node to inspect its supporting records.</span></>}
         {networkMode === "path" && <><strong>Path explorer</strong><span>Selected focus: {entityById(selectedEntity)?.name || selectedEntity}. Click another node to compare its strongest connected path.</span></>}
       </div>
+      {networkMode === "path" && <div className="inline-notice">{pathFrom ? `From: ${entityById(pathFrom)?.name || pathFrom}` : "Select a starting node"}{pathTo ? ` · To: ${entityById(pathTo)?.name || pathTo}` : " · Select a second node"}{pathNodes.length > 0 && ` · ${pathEdges.length} hop(s) found`}</div>}
       <div className="graph-source-note">
         <span className="graph-source-indicator" />
         <span><strong>Knowledge graph</strong> Every node and relationship is linked back to source evidence.</span>
@@ -1464,6 +1498,13 @@ function NetworkView({
           <GraphScene
             focusId={selectedEntity}
             onSelect={(id) => {
+              if (networkMode === "path") {
+                if (!pathFrom) { setPathFrom(id); setSelectedEntity(id); return; }
+                if (id === pathFrom) return;
+                setPathTo(id);
+                void fetch(`/api/graph/path?caseId=${encodeURIComponent(activeCaseId)}&from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`).then((response) => response.json()).then((data: { nodes?: string[]; edges?: { id: string }[] }) => { setPathNodes(data.nodes || []); setPathEdges((data.edges || []).map((edge) => String(edge.id))); });
+                return;
+              }
               setSelectedEntity(id);
               const connected = relationships.find((item) => item.source === id || item.target === id);
               if (connected) setSelectedEdge(connected.id);
@@ -1473,6 +1514,9 @@ function NetworkView({
             statusFilter={statusFilter}
             expanded={expanded}
             caseId={activeCaseId}
+            communities={networkMode === "communities"}
+            pathNodes={pathNodes}
+            pathEdges={pathEdges}
           />
           <div className="graph-stats">
             <span>
@@ -1557,14 +1601,14 @@ function Intelligence({
   setSelectedEntity: (id: string) => void;
   setView: (v: View) => void;
 }) {
-  const { summary } = useWorkspace();
+  const { summary, patterns: livePatterns } = useWorkspace();
   const [analysisRun, setAnalysisRun] = useState(false);
   return (
     <>
       <PageTitle
         eyebrow="INTELLIGENCE / EXPLAINABLE LEADS"
         title="What deserves attention"
-        copy="Prioritised analytical signals, with the evidence and reasoning kept visible."
+        copy="Prioritised analytical signals, with the evidence and reasoning kept visible. Open leads are investigative signals, not findings."
         action={
           <button className="secondary-button" onClick={() => setAnalysisRun(true)}>
             <Sparkles size={15} /> Run analysis
@@ -1601,7 +1645,7 @@ function Intelligence({
                   ))}
                 </div>
               </span>
-              <span className="big-score">
+              <span className="big-score" title={lead.signals.join(" · ")}>
                 {lead.score}
                 <small>priority score</small>
               </span>
@@ -1615,22 +1659,26 @@ function Intelligence({
           <p className="panel-intro">
             Rule-based signals found across the current evidence scope.
           </p>
-          {patterns.map((pattern) => (
-            <div className="pattern-row" key={pattern.title}>
-              <span className={`pattern-icon ${pattern.color}`}>
+          {livePatterns.map((pattern, index) => {
+            const isSpike = pattern.type === "COMMUNICATION_SPIKE";
+            const score = pattern.score || 0;
+            const severity = score >= 0.8 ? "HIGH" : "MEDIUM";
+            return <div className="pattern-row" key={`${pattern.type}-${pattern.relationship || index}`}>
+              <span className={`pattern-icon ${isSpike ? "orange" : "purple"}`}>
                 <Activity size={15} />
               </span>
               <span>
-                <strong>{pattern.title}</strong>
-                <small>{pattern.entity}</small>
-                <p>{pattern.detail}</p>
-                <em>{pattern.evidence}</em>
+                <strong>{isSpike ? "Communication spike" : "Potential association"}</strong>
+                <small>{pattern.relationship || `${pattern.source?.name || "Entity"} → ${pattern.target?.name || "Entity"}`}</small>
+                <p>{pattern.signals.join(" · ")}</p>
+                <em>{pattern.caseId || "Active case"}</em>
               </span>
-              <span className={`severity ${pattern.severity.toLowerCase()}`}>
-                {pattern.severity}
+              <span className={`severity ${severity.toLowerCase()}`}>
+                {severity}
               </span>
-            </div>
-          ))}
+            </div>;
+          })}
+          {livePatterns.length === 0 && <div className="empty-state">No computed patterns are available for this case yet.</div>}
         </section>
       </div>
       <section className="potential-lead panel">
@@ -1823,38 +1871,73 @@ type ResourceVerification = {
   eventCount?: number;
 };
 
+function SecurityAccess() {
+  const { activeCaseId, cases: workspaceCases, role } = useWorkspace();
+  return <>
+    <PageTitle eyebrow="CONTROL PLANE / ACCESS" title="Security & access" copy="Review the active session role and case-level access scope." action={<span className="role-badge">{role.toUpperCase()}</span>} />
+    <div className="integrity-grid">
+      <section className="panel access-panel">
+        <PanelHeading title="Current session" />
+        <div className="current-role">
+          <div className="avatar">{CURRENT_USER.initials}</div>
+          <span><strong>{CURRENT_USER.name}</strong><small>{role} · session enforced by API</small></span>
+          <span className="role-badge">{role.toUpperCase()}</span>
+        </div>
+        <div className="rbac-note"><KeyRound size={15} /><span>Mutation routes enforce the selected role server-side. Auditor sessions are read-only.</span></div>
+      </section>
+      <section className="panel access-panel">
+        <PanelHeading title="Case access" />
+        {workspaceCases.map((item) => {
+          const allowed = role === "Supervisor" || role === "Auditor" || item.id === activeCaseId;
+          return <div className="access-row" key={item.id}><span className={allowed ? "access-yes" : "access-no"}>{allowed ? <Check size={13} /> : <X size={13} />}</span><strong>{item.id}</strong><small>{allowed ? `${item.priority} · ${item.jurisdiction}` : "Outside assigned scope"}</small></div>;
+        })}
+      </section>
+    </div>
+  </>;
+}
+
 function Integrity() {
   const { activeCaseId, resources: workspaceResources } = useWorkspace();
   const [proofRun, setProofRun] = useState<ProofRun | null>(null);
   const [verification, setVerification] = useState<ProofRun["verification"]>();
   const [proofLoading, setProofLoading] = useState(true);
+  const [proofError, setProofError] = useState<string | null>(null);
+  const [verifyingProof, setVerifyingProof] = useState(false);
   const [localResources, setLocalResources] = useState<LocalResource[]>([]);
   const [resourceVerification, setResourceVerification] = useState<Record<string, ResourceVerification>>({});
   const [verifyingResource, setVerifyingResource] = useState<string | null>(null);
-  const [policyOpen, setPolicyOpen] = useState(false);
 
   async function loadProofRun() {
     setProofLoading(true);
     try {
+      setProofError(null);
       const response = await fetch(`/api/provenance?caseId=${encodeURIComponent(activeCaseId)}`);
       if (!response.ok) throw new Error("Proof trail unavailable");
       const data = (await response.json()) as ProofRun;
       setProofRun(data);
       setVerification(data.verification);
+    } catch (error) {
+      setProofError(error instanceof Error ? error.message : "Proof trail unavailable");
+      setProofRun(null);
     } finally {
       setProofLoading(false);
     }
   }
 
   async function verifyProof() {
-    if (!proofRun) return;
-    const response = await fetch("/api/provenance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ caseId: proofRun.caseId }),
-    });
-    const data = (await response.json()) as { valid: boolean; invalidEvent: string | null };
-    setVerification(data);
+    if (!proofRun) { setProofError("Load the proof trail before verifying it."); return; }
+    setVerifyingProof(true);
+    setProofError(null);
+    try {
+      const response = await fetch("/api/provenance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ caseId: proofRun.caseId }) });
+      if (!response.ok) throw new Error("Proof verification failed");
+      const data = (await response.json()) as { valid: boolean; invalidEvent: string | null };
+      setVerification(data);
+    } catch (error) {
+      setProofError(error instanceof Error ? error.message : "Proof verification failed");
+    } finally {
+      setVerifyingProof(false);
+    }
   }
 
   async function loadLocalResources() {
@@ -1880,7 +1963,7 @@ function Integrity() {
       unsubscribeResources();
       unsubscribeIntegrity();
     };
-  }, []);
+  }, [activeCaseId]);
 
   async function verifyResource(resourceId: string) {
     setVerifyingResource(resourceId);
@@ -1916,13 +1999,8 @@ function Integrity() {
         eyebrow="CONTROL PLANE / PROVENANCE"
         title="Trust, access and audit"
         copy="Security controls are visible at the point where investigative work happens."
-        action={
-          <button className="secondary-button" onClick={() => setPolicyOpen((open) => !open)}>
-            <LockKeyhole size={15} /> Access policy
-          </button>
-        }
       />
-      {policyOpen && <div className="inline-notice"><LockKeyhole size={14} /> Current role: Lead investigator · {activeCaseId} access is enabled for this workspace.</div>}
+      {proofError && <div className="resource-error"><CircleAlert size={14} /> {proofError}</div>}
       <section className="panel proof-panel">
         <div className="proof-header">
           <div>
@@ -1940,7 +2018,7 @@ function Integrity() {
               <div><small>ROOT HASH</small><strong>{proofRun.rootHash.slice(0, 18)}...</strong></div>
               <div><small>EVENTS</small><strong>{proofRun.events.length}</strong></div>
               <div><small>STORAGE</small><strong>{proofRun.storage === "neo4j" ? "Neo4j" : "Local demo"}</strong></div>
-              <button className="secondary-button small" onClick={verifyProof}>Verify trail</button>
+              <button className="secondary-button small" onClick={() => void verifyProof()} disabled={proofLoading || !proofRun || verifyingProof}>{verifyingProof ? "Verifying..." : "Verify trail"}</button>
             </div>
             <div className="proof-events">
               {proofRun.events.map((event) => (
@@ -2030,38 +2108,6 @@ function Integrity() {
               <b>{item.integrity === "verified" ? "VERIFIED" : "MISMATCH"}</b>
             </div>
           ))}
-        </section>
-        <section className="panel access-panel">
-          <PanelHeading title="Role-based access" action="Manage roles" onAction={() => setPolicyOpen((open) => !open)} />
-          <div className="current-role">
-             <div className="avatar">{CURRENT_USER.initials}</div>
-            <span>
-               <strong>{CURRENT_USER.name}</strong>
-               <small>{CURRENT_USER.role} · MFA verified</small>
-            </span>
-            <span className="role-badge">INVESTIGATOR</span>
-          </div>
-          {[
-            [activeCaseId, "Full access", true],
-            ["CASE-1003", "Full access", true],
-            ["CASE-1002", "Read only", true],
-            ["CASE-2001", "Denied by policy", false],
-          ].map(([id, label, allowed]) => (
-            <div className="access-row" key={String(id)}>
-              <span className={allowed ? "access-yes" : "access-no"}>
-                {allowed ? <Check size={13} /> : <X size={13} />}
-              </span>
-              <strong>{id}</strong>
-              <small>{label}</small>
-            </div>
-          ))}
-          <div className="rbac-note">
-            <KeyRound size={15} />
-            <span>
-              Least privilege is enforced at case level. Every access and export
-              is written to the audit trail.
-            </span>
-          </div>
         </section>
       </div>
       <section className="panel audit-panel">

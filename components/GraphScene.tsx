@@ -7,7 +7,7 @@ import type { Edge, Node } from 'vis-network/peer'
 import { entityById, graphEdges, graphNodes, type GraphEdge, type GraphNode } from '@/src/data'
 import { subscribeWorkspaceEvent, WORKSPACE_EVENTS } from '@/lib/workspaceEvents'
 
-type Props = { focusId?: string; onSelect?: (id: string) => void; communities?: boolean; searchQuery?: string; statusFilter?: 'all' | 'observed' | 'corroborated' | 'predicted'; expanded?: boolean; caseId?: string }
+type Props = { focusId?: string; onSelect?: (id: string) => void; communities?: boolean; searchQuery?: string; statusFilter?: 'all' | 'observed' | 'corroborated' | 'predicted'; expanded?: boolean; caseId?: string; pathNodes?: string[]; pathEdges?: string[] }
 type GraphPayload = { source: string; nodes: GraphNode[]; edges: GraphEdge[] }
 
 function degreeFor(nodes: GraphNode[], edges: GraphEdge[]) {
@@ -25,7 +25,7 @@ function clusterColor(node: GraphNode) {
   return colors[node.jurisdiction || ''] || (node.type === 'LOCATION' ? '#8b8b8b' : '#6b7280')
 }
 
-export function GraphScene({ focusId, onSelect, searchQuery = '', statusFilter = 'all', expanded = false, caseId = '' }: Props) {
+export function GraphScene({ focusId, onSelect, searchQuery = '', statusFilter = 'all', expanded = false, caseId = '', communities = false, pathNodes = [], pathEdges = [] }: Props) {
   const mountRef = useRef<HTMLDivElement>(null)
   const networkRef = useRef<Network | null>(null)
   const selectRef = useRef(onSelect)
@@ -38,7 +38,8 @@ export function GraphScene({ focusId, onSelect, searchQuery = '', statusFilter =
       const api = process.env.NEXT_PUBLIC_GRAPH_API || ''
       const controller = new AbortController()
       const timeout = window.setTimeout(() => controller.abort(), 5000)
-      return fetch(`${api}/api/graph?limit=${expanded ? 220 : 90}&caseId=${encodeURIComponent(caseId)}`, { signal: controller.signal })
+      const endpoint = expanded && focusId ? `${api}/api/graph/neighborhood?focusId=${encodeURIComponent(focusId)}&caseId=${encodeURIComponent(caseId)}` : `${api}/api/graph?limit=220&caseId=${encodeURIComponent(caseId)}`
+      return fetch(endpoint, { signal: controller.signal })
         .finally(() => window.clearTimeout(timeout))
         .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: GraphPayload) => { setPayload(data); setIsLive(data.source === 'neo4j') })
@@ -46,13 +47,15 @@ export function GraphScene({ focusId, onSelect, searchQuery = '', statusFilter =
     }
     void loadGraph()
     return subscribeWorkspaceEvent(WORKSPACE_EVENTS.graphRefresh, () => void loadGraph())
-  }, [])
+  }, [expanded, focusId, caseId])
 
   useEffect(() => {
     const mount = mountRef.current
     if (!mount) return
     networkRef.current?.destroy()
     const visibleEdges = statusFilter === 'all' ? payload.edges : payload.edges.filter((edge) => edge.status === statusFilter)
+    const pathNodeSet = new Set(pathNodes)
+    const pathEdgeSet = new Set(pathEdges)
     const degrees = degreeFor(payload.nodes, visibleEdges)
     const normalizedSearch = searchQuery.trim().toLowerCase()
     const matchesNode = (node: GraphNode) => !normalizedSearch || [node.id, node.name, node.alias, node.type, node.jurisdiction]
@@ -71,7 +74,8 @@ export function GraphScene({ focusId, onSelect, searchQuery = '', statusFilter =
         size: Math.max(13, Math.min(34, 13 + degree * 2.2)),
         color: { background: clusterColor(node), border: '#101010', highlight: { background: '#ffffff', border: '#ffffff' }, hover: { background: '#ffffff', border: '#ffffff' } },
         font: { color: '#ffffff', size: isPerson ? 14 : 11, face: 'Arial', strokeWidth: 4, strokeColor: '#111111' },
-        opacity: isMatch ? 1 : 0.2,
+         opacity: pathNodes.length ? pathNodeSet.has(node.id) ? 1 : 0.12 : isMatch ? 1 : 0.2,
+         group: communities ? node.jurisdiction || node.type : undefined,
         borderWidth: isMatch && normalizedSearch ? 4 : node.id === 'P003' ? 3 : 1.5,
         shadow: { enabled: node.id === 'P003' || (isMatch && Boolean(normalizedSearch)), color: '#000000', size: 4, x: 2, y: 2 },
       }
@@ -84,7 +88,7 @@ export function GraphScene({ focusId, onSelect, searchQuery = '', statusFilter =
       title: `${edge.type.replaceAll('_', ' ')}\nStatus: ${edge.status}\nSources: ${edge.evidence?.join(', ') || 'graph signal'}`,
       width: edge.status === 'corroborated' ? 4 : 1.2,
       dashes: edge.status === 'predicted' ? [8, 6] : false,
-      color: { color: !normalizedSearch || matchingIds.has(edge.source) || matchingIds.has(edge.target) ? edge.status === 'predicted' ? '#c1a4ef' : edge.status === 'corroborated' ? '#65dcb0' : '#9ec4e7' : '#31404d', opacity: !normalizedSearch || matchingIds.has(edge.source) || matchingIds.has(edge.target) ? 1 : 0.2, highlight: '#ffffff', hover: '#ffffff' },
+       color: { color: pathEdges.length && pathEdgeSet.has(String(edge.id)) ? '#ffad61' : !normalizedSearch || matchingIds.has(edge.source) || matchingIds.has(edge.target) ? edge.status === 'predicted' ? '#c1a4ef' : edge.status === 'corroborated' ? '#65dcb0' : '#9ec4e7' : '#31404d', opacity: pathEdges.length ? pathEdgeSet.has(String(edge.id)) ? 1 : 0.1 : !normalizedSearch || matchingIds.has(edge.source) || matchingIds.has(edge.target) ? 1 : 0.2, highlight: '#ffffff', hover: '#ffffff' },
       arrows: { to: { enabled: true, scaleFactor: 0.45 } },
       font: { color: '#dddddd', size: 9, face: 'Arial', strokeWidth: 3, strokeColor: '#111111', align: 'middle' },
       smooth: false,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { sessionCookie, type SessionRole } from '@/lib/session'
+import { getRequestSession } from '@/lib/session'
 
 const roles = new Set<SessionRole>(['Investigator', 'Supervisor', 'Auditor'])
 
@@ -9,4 +10,8 @@ export async function POST(request: Request) {
   const response = NextResponse.json({ userId: body.userId || 'demo-investigator', role: body.role })
   response.headers.set('Set-Cookie', sessionCookie(body.role, body.userId))
   return response
+}
+
+export async function GET(request: Request) {
+  return NextResponse.json(getRequestSession(request))
 }

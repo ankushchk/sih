@@ -3,6 +3,7 @@ import { markResourceProcessing, markResourceProcessingFailed, processResource, 
 import { indexResourceEvidence } from '@/lib/evidenceIndex'
 import { updateResourceEmbedding } from '@/lib/resources'
 import { denyAuditorMutation } from '@/lib/session'
+import { getNeo4jDriver } from '@/lib/neo4j'
 
 export const runtime = 'nodejs'
 
@@ -13,6 +14,10 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   try {
     const started = await markResourceProcessing(id)
     if (!started) return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
+    if (started.status === 'processing' && started.processingCompletedAt) {
+      const session = getNeo4jDriver().session()
+      try { await session.run('MATCH ()-[r]->() WHERE r.resourceId = $resourceId DELETE r', { resourceId: id }) } finally { await session.close() }
+    }
     const resource = await processResource(id)
     if (!resource) return NextResponse.json({ error: 'Resource not found' }, { status: 404 })
     try {

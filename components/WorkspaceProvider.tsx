@@ -28,13 +28,17 @@ export type WorkspaceCase = {
   jurisdiction: string;
   evidenceCount?: number;
 };
+export type WorkspaceRole = 'Investigator' | 'Supervisor' | 'Auditor';
+export type WorkspacePattern = { type: string; score?: number; signals: string[]; relationship?: string; caseId?: string; source?: { id: string; name: string }; target?: { id: string; name: string } };
 
 type WorkspaceContextValue = {
   activeCaseId: string;
+  role: WorkspaceRole;
   cases: WorkspaceCase[];
   setActiveCaseId: (caseId: string) => void;
   resources: WorkspaceResource[];
   summary: WorkspaceSummary | null;
+  patterns: WorkspacePattern[];
   loading: boolean;
   error: string | null;
   refreshResources: () => Promise<void>;
@@ -44,9 +48,11 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [activeCaseId, setActiveCaseId] = useState("CASE-1004");
+  const [role, setRole] = useState<WorkspaceRole>('Investigator');
   const [cases, setCases] = useState<WorkspaceCase[]>([]);
   const [resources, setResources] = useState<WorkspaceResource[]>(demoResources.filter((resource) => resource.caseId === activeCaseId || resource.caseId === "MULTI-CASE"));
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null);
+  const [patterns, setPatterns] = useState<WorkspacePattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const refreshResources = async () => {
@@ -89,12 +95,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshPatterns = async () => {
+    try {
+      const response = await fetch(`/api/patterns?caseId=${encodeURIComponent(activeCaseId)}`, { cache: 'no-store' });
+      if (response.ok) setPatterns(((await response.json()) as { patterns: WorkspacePattern[] }).patterns || []);
+    } catch { setPatterns([]) }
+  };
+
+  const refreshSession = async () => {
+    try {
+      const response = await fetch('/api/session', { cache: 'no-store' });
+      if (response.ok) setRole(((await response.json()) as { role: WorkspaceRole }).role)
+    } catch { /* The investigator role remains the safe prototype default. */ }
+  };
+
   useEffect(() => {
     void refreshResources();
     void refreshSummary();
     void refreshCases();
+    void refreshSession();
+    void refreshPatterns();
     const unsubscribe = subscribeWorkspaceEvent(WORKSPACE_EVENTS.resourcesChanged, () => { void refreshResources(); void refreshSummary(); });
-    const interval = window.setInterval(() => { void refreshResources(); void refreshSummary(); void refreshCases(); }, 5000);
+    const interval = window.setInterval(() => { void refreshResources(); void refreshSummary(); void refreshCases(); void refreshSession(); void refreshPatterns(); }, 5000);
     return () => {
       unsubscribe();
       window.clearInterval(interval);
@@ -104,9 +126,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refreshResources();
     void refreshSummary();
+    void refreshPatterns();
   }, [activeCaseId]);
 
-  return <WorkspaceContext.Provider value={{ activeCaseId, setActiveCaseId, cases, resources, summary, loading, error, refreshResources }}>{children}</WorkspaceContext.Provider>;
+  return <WorkspaceContext.Provider value={{ activeCaseId, setActiveCaseId, role, cases, resources, summary, patterns, loading, error, refreshResources }}>{children}</WorkspaceContext.Provider>;
 }
 
 export function useWorkspace() {

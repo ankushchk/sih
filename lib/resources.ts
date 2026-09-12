@@ -168,6 +168,22 @@ export async function createResource(file: File, caseId: string, addedBy: string
   return resource
 }
 
+export async function createManualResource(input: { caseId: string; addedBy: string; source: string; target: string; sourceName: string; targetName: string; type: string; confidence: number; note: string }) {
+  const text = input.note.trim()
+  const buffer = Buffer.from(text, 'utf8')
+  const hash = createHash('sha256').update(buffer).digest('hex')
+  const id = `MANUAL-${Date.now()}-${hash.slice(0, 8)}`
+  await ensureStorage()
+  const storedPath = path.join(uploadDir, `${id}.txt`)
+  await writeFile(storedPath, buffer)
+  const commitment = await commitDocument({ resourceId: id, caseId: input.caseId, filename: `${id}.txt`, sourceHash: hash })
+  const resource: StoredResource = { id, filename: `${id}.txt`, type: 'INVESTIGATIVE NOTE', title: 'Investigator relationship note', caseId: input.caseId, timestamp: new Date().toISOString(), excerpt: text.slice(0, 280), hash, integrity: 'verified', size: `${Math.max(buffer.length / 1024, 1).toFixed(1)} KB`, status: 'review', entities: 2, relationships: 1, addedBy: input.addedBy, storedPath, text, integrityEntryHash: commitment.entryHash, extractions: [], connections: [{ id: `${id}-CONNECTION-01`, source: input.source, target: input.target, sourceName: input.sourceName, targetName: input.targetName, type: input.type, status: 'observed', confidence: input.confidence, evidence: [id], evidenceExcerpt: text, sourceSegment: text, reviewStatus: 'pending' }] }
+  const resources = await readResources()
+  resources.unshift(resource)
+  await writeResources(resources)
+  return resource
+}
+
 export async function processResource(id: string) {
   const resources = await readResources()
   const resource = resources.find((item) => item.id === id)

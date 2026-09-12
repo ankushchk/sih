@@ -36,13 +36,13 @@ export async function GET(request: Request) {
     const caseCountResult = await session.run(`MATCH (c:Case) RETURN count(c) AS total, count(CASE WHEN coalesce(c.status, 'ACTIVE') = 'ACTIVE' THEN 1 END) AS active`)
     const graphResult = await session.run(`OPTIONAL MATCH (a:Entity)-[r]-(b:Entity)
         WHERE ($role <> 'Auditor' OR (coalesce(a.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(b.sensitivity, 'STANDARD') = 'STANDARD' AND (r IS NULL OR coalesce(r.sensitivity, 'STANDARD') = 'STANDARD')))
-          AND ($caseId = '' OR r IS NULL OR r.caseId = $caseId OR r.caseId IS NULL)
+          AND ($caseId = '' OR r IS NULL OR r.caseId = $caseId OR $caseId IN coalesce(r.caseIds, []))
         RETURN count(DISTINCT r) AS relationshipCount,
           count(DISTINCT CASE WHEN r.status = 'predicted' THEN r END) AS openLeads,
           count(DISTINCT CASE WHEN r.resourceId IS NOT NULL THEN r END) AS inGraph` , { caseId, role })
     const leadResult = await session.run(`MATCH (n:Entity)-[r]-(other:Entity)
         WHERE ($role <> 'Auditor' OR (coalesce(n.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(other.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(r.sensitivity, 'STANDARD') = 'STANDARD'))
-          AND ($caseId = '' OR r.caseId = $caseId OR r.caseId IS NULL)
+          AND ($caseId = '' OR r.caseId = $caseId OR $caseId IN coalesce(r.caseIds, []))
         WITH n, count(DISTINCT r) AS degree, count(DISTINCT coalesce(r.caseId, 'canonical')) AS caseCount, collect(DISTINCT r.status) AS statuses
         RETURN n.id AS id, n.name AS name, n.role AS role, degree, caseCount, statuses
         ORDER BY degree DESC, caseCount DESC LIMIT 3`, { caseId, role })
