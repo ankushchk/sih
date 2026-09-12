@@ -1,4 +1,5 @@
 import neo4j from 'neo4j-driver'
+import { entityTypeFromId, validateRelationship } from '@/lib/ontology'
 
 const uri = process.env.NEO4J_URI || 'bolt://localhost:7687'
 const user = process.env.NEO4J_USER || 'neo4j'
@@ -30,7 +31,7 @@ const observed = [
   ['P001', 'P002', 'MET', 'FIR-1001;SURV-0001', 'CASE-1001'], ['P001', 'P003', 'ASSOCIATED_WITH', 'FIR-1001;CDR;SURV-0003', 'CASE-1001'],
   ['P002', 'P003', 'ASSOCIATED_WITH', 'FIR-1002;CDR;SURV-0006', 'CASE-1002'], ['P003', 'P004', 'ASSOCIATED_WITH', 'FIR-1003;CDR;SURV-0009', 'CASE-1003'],
   ['P001', 'P004', 'ASSOCIATED_WITH', 'FIR-1004;SURV-0012;AUDIO-001', 'CASE-1004'], ['P003', 'P005', 'ASSOCIATED_WITH', 'FIR-1002;CDR;SURV-0006;TXN-0002', 'CASE-1002'],
-  ['P004', 'P005', 'FINANCIAL_ASSOCIATION', 'TXN-0004', 'CASE-1003'], ['P001', 'P005', 'POTENTIAL_ASSOCIATION', 'GRAPH-001;TEMPORAL-001', 'CASE-1004'],
+  ['P004', 'P005', 'FINANCIAL_ASSOCIATION', 'TXN-0004', 'CASE-1003'],
   ['P006', 'P001', 'CALLS', 'CDR-0096;CDR-0098', 'CASE-1005'], ['P007', 'P003', 'CALLS', 'CDR-0092;CDR-0093', 'CASE-1002'],
   ['P008', 'P003', 'CALLS', 'CDR-0103;CDR-0113', 'CASE-1002'], ['P009', 'P003', 'CALLS', 'CDR-0080;CDR-0084', 'CASE-1004'],
   ['P010', 'P005', 'CALLS', 'CDR-0085;CDR-0087', 'CASE-1003'], ['P011', 'P005', 'CALLS', 'CDR-0099;CDR-0100', 'CASE-1002'],
@@ -38,6 +39,7 @@ const observed = [
 ]
 
 export async function seed() {
+  for (const row of observed) validateRelationship({ type: row[2], sourceType: entityTypeFromId(row[0]), targetType: entityTypeFromId(row[1]) })
   const session = driver.session()
   try {
     await session.run('CREATE CONSTRAINT entity_id IF NOT EXISTS FOR (n:Entity) REQUIRE n.id IS UNIQUE')
@@ -54,6 +56,8 @@ export async function seed() {
     await session.run('MATCH (p:Entity {type: "PERSON"}), (c:Case) WHERE c.id IN ["CASE-1001", "CASE-1002", "CASE-1003", "CASE-1004", "CASE-1005"] AND (p.id IN ["P001", "P002", "P003", "P004", "P005"]) MERGE (p)-[:MENTIONED_IN {status: "observed", source: "case index"}]->(c)')
     await session.run('MATCH (p:Entity {id: "P001"}), (l:Entity {id: "L001"}), (c:Case {id: "CASE-1001"}) MERGE (p)-[:VISITED {status: "observed", source: "SURV-0001", timestamp: "2026-08-12 20:15"}]->(l) MERGE (p)-[:APPEARED_IN {status: "observed", source: "SURV-0001"}]->(c)')
     await session.run('MATCH (p:Entity {id: "P003"}), (l:Entity {id: "L003"}), (c:Case {id: "CASE-1004"}) MERGE (p)-[:VISITED {status: "observed", source: "SURV-0010", timestamp: "2026-08-20 17:32"}]->(l) MERGE (p)-[:APPEARED_IN {status: "observed", source: "SURV-0010"}]->(c)')
+    await session.run("MATCH (n:Entity) SET n.sensitivity = coalesce(n.sensitivity, 'STANDARD')")
+    await session.run("MATCH ()-[r]->() SET r.sensitivity = coalesce(r.sensitivity, 'STANDARD')")
     console.log('EvidenceGraph Neo4j seed complete')
   } finally { await session.close(); await driver.close() }
 }

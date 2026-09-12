@@ -2,6 +2,7 @@ import neo4j from 'neo4j-driver'
 import { NextResponse } from 'next/server'
 import { getNeo4jDriver } from '@/lib/neo4j'
 import { listStoredResources } from '@/lib/resources'
+import { getRequestSession } from '@/lib/session'
 
 export const runtime = 'nodejs'
 
@@ -29,19 +30,22 @@ export async function GET(request: Request) {
     }))
 
   const session = getNeo4jDriver().session()
+  const role = getRequestSession(request).role
   try {
     const caseResult = await session.run(`MATCH (c:Case {id: $caseId}) RETURN c.id AS id, c.title AS title, coalesce(c.status, 'ACTIVE') AS status, coalesce(c.priority, 'UNSPECIFIED') AS priority, coalesce(c.jurisdiction, 'UNSPECIFIED') AS jurisdiction`, { caseId })
     const caseCountResult = await session.run(`MATCH (c:Case) RETURN count(c) AS total, count(CASE WHEN coalesce(c.status, 'ACTIVE') = 'ACTIVE' THEN 1 END) AS active`)
     const graphResult = await session.run(`OPTIONAL MATCH (a:Entity)-[r]-(b:Entity)
-        WHERE ($caseId = '' OR r IS NULL OR r.caseId = $caseId OR r.caseId IS NULL)
+        WHERE ($role <> 'Auditor' OR (coalesce(a.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(b.sensitivity, 'STANDARD') = 'STANDARD' AND (r IS NULL OR coalesce(r.sensitivity, 'STANDARD') = 'STANDARD')))
+          AND ($caseId = '' OR r IS NULL OR r.caseId = $caseId OR r.caseId IS NULL)
         RETURN count(DISTINCT r) AS relationshipCount,
           count(DISTINCT CASE WHEN r.status = 'predicted' THEN r END) AS openLeads,
-          count(DISTINCT CASE WHEN r.resourceId IS NOT NULL THEN r END) AS inGraph` , { caseId })
+          count(DISTINCT CASE WHEN r.resourceId IS NOT NULL THEN r END) AS inGraph` , { caseId, role })
     const leadResult = await session.run(`MATCH (n:Entity)-[r]-(other:Entity)
-        WHERE ($caseId = '' OR r.caseId = $caseId OR r.caseId IS NULL)
+        WHERE ($role <> 'Auditor' OR (coalesce(n.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(other.sensitivity, 'STANDARD') = 'STANDARD' AND coalesce(r.sensitivity, 'STANDARD') = 'STANDARD'))
+          AND ($caseId = '' OR r.caseId = $caseId OR r.caseId IS NULL)
         WITH n, count(DISTINCT r) AS degree, count(DISTINCT coalesce(r.caseId, 'canonical')) AS caseCount, collect(DISTINCT r.status) AS statuses
         RETURN n.id AS id, n.name AS name, n.role AS role, degree, caseCount, statuses
-        ORDER BY degree DESC, caseCount DESC LIMIT 3`, { caseId })
+        ORDER BY degree DESC, caseCount DESC LIMIT 3`, { caseId, role })
 
     const caseRecord = caseResult.records[0]
     if (!caseRecord) return NextResponse.json({ error: 'Case not found', caseId }, { status: 404 })

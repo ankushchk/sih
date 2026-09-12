@@ -40,6 +40,7 @@ import { GraphScene } from "@/components/GraphScene";
 import { AskPanel } from "@/components/AskPanel";
 import { emitWorkspaceEvent, subscribeWorkspaceEvent, WORKSPACE_EVENTS } from "@/lib/workspaceEvents";
 import { useWorkspace } from "@/components/WorkspaceProvider";
+import { CURRENT_USER } from "@/lib/currentUser";
 import {
   cases,
   entityById,
@@ -76,7 +77,7 @@ function App() {
 
   if (screen === "landing")
     return <Landing onEnter={() => setScreen("login")} />;
-  if (screen === "login") return <Login onLogin={() => setScreen("app")} />;
+  if (screen === "login") return <Login onLogin={(role) => { void fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role, userId: CURRENT_USER.id }) }); setScreen("app"); }} />;
 
   const selected = entityById(selectedEntity);
   const edge =
@@ -198,10 +199,10 @@ function App() {
               </span>
             </div>
             <div className="profile">
-              <div className="avatar">AM</div>
+              <div className="avatar">{CURRENT_USER.initials}</div>
               <div>
-                <strong>Ankush Chauhan</strong>
-                <small>Lead investigator</small>
+               <strong>{CURRENT_USER.name}</strong>
+               <small>{CURRENT_USER.role}</small>
               </div>
               <ChevronRight size={14} />
             </div>
@@ -243,7 +244,7 @@ function App() {
               <i className="notification-dot" />
             </button>
             {notificationsOpen && <div className="notification-popover"><strong>Recent notifications</strong><span>Evidence hash verified for the latest uploaded resource.</span><span>Vikram Malhotra remains the highest-priority investigative lead.</span></div>}
-            <div className="top-avatar">AM</div>
+            <div className="top-avatar">{CURRENT_USER.initials}</div>
           </div>
         </header>
         <div className="content-scroll">
@@ -473,7 +474,8 @@ function Landing({ onEnter }: { onEnter: () => void }) {
   );
 }
 
-function Login({ onLogin }: { onLogin: () => void }) {
+function Login({ onLogin }: { onLogin: (role: "Investigator" | "Supervisor" | "Auditor") => void }) {
+  const [role, setRole] = useState<"Investigator" | "Supervisor" | "Auditor">("Investigator");
   return (
     <div className="login-screen">
       <div className="login-glow" />
@@ -500,13 +502,21 @@ function Login({ onLogin }: { onLogin: () => void }) {
             <LockKeyhole size={16} />
           </div>
         </label>
+        <label>
+          Workspace role
+          <select value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
+            <option>Investigator</option>
+            <option>Supervisor</option>
+            <option>Auditor</option>
+          </select>
+        </label>
         <div className="login-meta">
           <span>
             <input type="checkbox" defaultChecked /> Trust this device
           </span>
           <a>Reset password</a>
         </div>
-        <button className="primary-button login-submit" onClick={onLogin}>
+        <button className="primary-button login-submit" onClick={() => onLogin(role)}>
           Continue to workspace <ArrowRight size={16} />
         </button>
         <div className="mfa-note">
@@ -594,11 +604,13 @@ function Overview({
   const lead = summary?.lead;
   const metrics = summary?.metrics;
   const progress = metrics?.processingPercent ?? null;
+  const [showAllActivity, setShowAllActivity] = useState(false);
+  const activity = showAllActivity ? (summary?.activity || []) : (summary?.activity || []).slice(0, 3);
   return (
     <>
       <PageTitle
         eyebrow={`COMMAND CENTER / ${activeCaseId}`}
-        title="Good morning, Ankush."
+        title={`Good morning, ${CURRENT_USER.name.split(" ")[0]}.`}
         copy="Here is the signal across your active investigations."
         action={
           <button className="primary-button" onClick={() => setView("network")}>
@@ -623,27 +635,13 @@ function Overview({
           Investigate <ArrowRight size={15} />
         </button>
       </div>
-      <div className="metric-grid">
+      <div className="metric-grid dashboard-metric-grid">
         <Metric
           label="Active cases"
           value={metrics ? String(metrics.activeCases).padStart(2, "0") : "—"}
           detail={metrics ? "Active investigations" : "Loading live case data"}
           icon={<Target size={17} />}
           tone="orange"
-        />
-        <Metric
-          label="Evidence records"
-          value={metrics ? String(metrics.evidenceRecords).padStart(2, "0") : "—"}
-          detail={metrics ? `${metrics.processedRecords} processed in this workspace` : "Loading live resource data"}
-          icon={<FileCheck2 size={17} />}
-          tone="blue"
-        />
-        <Metric
-          label="Entities resolved"
-          value={metrics ? String(metrics.entitiesResolved).padStart(2, "0") : "—"}
-          detail={metrics ? "Distinct extracted entities" : "Loading extracted entities"}
-          icon={<Users size={17} />}
-          tone="green"
         />
         <Metric
           label="Open leads"
@@ -653,7 +651,7 @@ function Overview({
           tone="purple"
         />
       </div>
-      <div className="overview-grid">
+      <div className="overview-grid overview-single">
         <section className="panel case-panel">
           <PanelHeading
             title="Active investigation"
@@ -666,6 +664,10 @@ function Overview({
             </div>
             <h2>{summary?.case.title || "Loading active investigation..."}</h2>
             <p>{summary?.case.priority || ""} priority · {summary?.case.jurisdiction || "Loading jurisdiction..."}</p>
+            <div className="case-inline-stats">
+              <span><strong>{metrics ? metrics.evidenceRecords : "—"}</strong> evidence records</span>
+              <span><strong>{metrics ? metrics.entitiesResolved : "—"}</strong> entities resolved</span>
+            </div>
             <div className="case-progress">
               <div>
                 <span>Evidence processing</span>
@@ -675,34 +677,20 @@ function Overview({
                 <i style={{ width: `${progress ?? 0}%` }} />
               </div>
             </div>
+            <details className="pipeline-disclosure">
+              <summary>View pipeline detail <ChevronRight size={14} /></summary>
+              <div className="pipeline pipeline-inline">
+                <PipelineStep icon={<FileText size={16} />} label="Ingested" value={metrics ? String(metrics.pipeline.ingested).padStart(2, "0") : "—"} done={Boolean(metrics)} />
+                <PipelineStep icon={<BrainCircuit size={16} />} label="Extracted" value={metrics ? String(metrics.pipeline.extracted).padStart(2, "0") : "—"} done={(metrics?.pipeline.extracted ?? 0) > 0} />
+                <PipelineStep icon={<GitBranch size={16} />} label="Resolved" value={metrics ? String(metrics.pipeline.resolved).padStart(2, "0") : "—"} done={(metrics?.pipeline.resolved ?? 0) > 0} />
+                <PipelineStep icon={<Network size={16} />} label="In graph" value={metrics ? String(metrics.pipeline.inGraph).padStart(2, "0") : "—"} done={(metrics?.pipeline.inGraph ?? 0) > 0} />
+              </div>
+            </details>
             <button className="text-button" onClick={() => setView("evidence")}>
               {progress === 100 ? "Review extracted results" : "Continue processing"}{" "}
               <ArrowRight size={14} />
             </button>
           </div>
-        </section>
-        <section className="panel leads-panel">
-          <PanelHeading
-            title="Priority leads"
-            action="View all"
-            onAction={() => setView("intelligence")}
-          />
-          {(summary?.leads || []).map((lead) => (
-            <button
-              className="lead-row"
-              key={lead.id}
-              onClick={() => setView("intelligence")}
-            >
-              <span className="lead-rank">{lead.rank}</span>
-              <span className="lead-name">
-                <strong>{lead.name}</strong>
-                <small>{lead.label}</small>
-              </span>
-              <span className="lead-score">{lead.score}</span>
-              <ChevronRight size={15} />
-            </button>
-          ))}
-          {summary && summary.leads.length === 0 && <div className="empty-state">No leads are available for this case yet.</div>}
         </section>
       </div>
       <div className="bottom-grid">
@@ -712,7 +700,7 @@ function Overview({
             action="Audit trail"
             onAction={() => setView("integrity")}
           />
-          {(summary?.activity || []).map(({ id, time, title, detail, tone }) => (
+          {activity.map(({ id, time, title, detail, tone }) => (
             <div className="activity-row" key={id}>
               <span className={`activity-dot ${tone}`} />
               <span className="activity-time">{Number.isNaN(Date.parse(time)) ? time : new Date(time).toLocaleDateString()}</span>
@@ -722,39 +710,7 @@ function Overview({
               </span>
             </div>
           ))}
-        </section>
-        <section className="panel processing-panel">
-          <PanelHeading
-            title="Evidence pipeline"
-            action="Evidence inbox"
-            onAction={() => setView("evidence")}
-          />
-          <div className="pipeline">
-            <PipelineStep
-              icon={<FileText size={16} />}
-              label="Ingested"
-              value={metrics ? String(metrics.pipeline.ingested).padStart(2, "0") : "—"}
-              done={Boolean(metrics)}
-            />
-            <PipelineStep
-              icon={<BrainCircuit size={16} />}
-              label="Extracted"
-              value={metrics ? String(metrics.pipeline.extracted).padStart(2, "0") : "—"}
-              done={(metrics?.pipeline.extracted ?? 0) > 0}
-            />
-            <PipelineStep
-              icon={<GitBranch size={16} />}
-              label="Resolved"
-              value={metrics ? String(metrics.pipeline.resolved).padStart(2, "0") : "—"}
-              done={(metrics?.pipeline.resolved ?? 0) > 0}
-            />
-            <PipelineStep
-              icon={<Network size={16} />}
-              label="In graph"
-              value={metrics ? String(metrics.pipeline.inGraph).padStart(2, "0") : "—"}
-              done={(metrics?.pipeline.inGraph ?? 0) > 0}
-            />
-          </div>
+          {(summary?.activity.length || 0) > 3 && <button className="text-button activity-more" onClick={() => setShowAllActivity((value) => !value)}>{showAllActivity ? "Show less" : "Show more"} <ArrowRight size={14} /></button>}
         </section>
       </div>
     </>
@@ -1286,9 +1242,11 @@ function EvidenceInbox({
   const { activeCaseId, resources: liveResources } = useWorkspace();
   const [selectedEvidenceId, setSelectedEvidenceId] = useState("FIR-1004");
   const [sourceFilter, setSourceFilter] = useState("ALL");
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
   const allEvidence = [...evidence, ...liveResources.filter((resource) => !evidence.some((item) => item.id === resource.id))];
   const selectedEvidence = allEvidence.find((item) => item.id === selectedEvidenceId) ?? allEvidence[0];
-  const visibleEvidence = allEvidence.filter((item) => sourceFilter === "ALL" || item.type === sourceFilter);
+  const filteredEvidence = allEvidence.filter((item) => sourceFilter === "ALL" || item.type === sourceFilter);
+  const visibleEvidence = showAllEvidence ? filteredEvidence : filteredEvidence.slice(0, 5);
 
   return (
     <>
@@ -1338,6 +1296,7 @@ function EvidenceInbox({
               {("status" in item ? item.status !== "ready" : index < 5) && <span className="processed-label">processed</span>}
             </button>
           ))}
+          {filteredEvidence.length > 5 && <button className="text-button activity-more" onClick={() => setShowAllEvidence((value) => !value)}>{showAllEvidence ? "Show less" : `Show ${filteredEvidence.length - 5} more`} <ArrowRight size={14} /></button>}
         </section>
         <section className="panel evidence-preview">
           <div className="preview-top">
@@ -1940,8 +1899,8 @@ function Integrity() {
 
   function downloadAuditLog() {
     const audit = [
-      { time: "09:42", event: "Hash verification completed", scope: activeCaseId, actor: "Ankush Chauhan" },
-      { time: "09:18", event: "Entity resolution accepted", scope: "Raju → P001", actor: "Ankush Chauhan" },
+      { time: "09:42", event: "Hash verification completed", scope: activeCaseId, actor: CURRENT_USER.name },
+      { time: "09:18", event: "Entity resolution accepted", scope: "Raju → P001", actor: CURRENT_USER.name },
       { time: "Yesterday", event: "Predicted lead generated", scope: "Rahul ↔ Imran", actor: "Ingestion service" },
     ];
     const link = document.createElement("a");
@@ -2075,10 +2034,10 @@ function Integrity() {
         <section className="panel access-panel">
           <PanelHeading title="Role-based access" action="Manage roles" onAction={() => setPolicyOpen((open) => !open)} />
           <div className="current-role">
-            <div className="avatar">AM</div>
+             <div className="avatar">{CURRENT_USER.initials}</div>
             <span>
-              <strong>Ankush Chauhan</strong>
-              <small>Lead investigator · MFA verified</small>
+               <strong>{CURRENT_USER.name}</strong>
+               <small>{CURRENT_USER.role} · MFA verified</small>
             </span>
             <span className="role-badge">INVESTIGATOR</span>
           </div>
@@ -2112,13 +2071,13 @@ function Integrity() {
             "09:42",
             "Hash verification completed",
             "FIR-1004.pdf · VERIFIED",
-            "Ankush Chauhan",
+             CURRENT_USER.name,
           ],
           [
             "09:18",
             "Entity resolution accepted",
             "Raju → P001 · canonical mapping",
-            "Ankush Chauhan",
+             CURRENT_USER.name,
           ],
           [
             "Yesterday",

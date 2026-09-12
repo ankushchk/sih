@@ -95,7 +95,6 @@ export const relationships: Relationship[] = [
   { id: 'P001-P004', source: 'P001', target: 'P004', type: 'ASSOCIATED_WITH', status: 'corroborated', confidence: 0.86, evidence: ['FIR-1004', 'SURV-0012', 'AUDIO-001'], timestamp: '20 Aug 2026' },
   { id: 'P003-P005', source: 'P003', target: 'P005', type: 'ASSOCIATED_WITH', status: 'corroborated', confidence: 0.82, evidence: ['FIR-1002', 'CDR', 'SURV-0006', 'TXN-0002'], timestamp: '15–16 Aug 2026' },
   { id: 'P004-P005', source: 'P004', target: 'P005', type: 'FINANCIAL_ASSOCIATION', status: 'observed', confidence: 0.78, evidence: ['TXN-0004'], timestamp: '18 Aug 2026' },
-  { id: 'P001-P005', source: 'P001', target: 'P005', type: 'POTENTIAL_ASSOCIATION', status: 'predicted', confidence: 0.74, evidence: [], timestamp: 'Derived · Aug 2026' },
 ]
 
 export const cases = [

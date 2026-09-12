@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server'
 import { markResourceProcessing, markResourceProcessingFailed, processResource, publicResource } from '@/lib/resources'
 import { indexResourceEvidence } from '@/lib/evidenceIndex'
 import { updateResourceEmbedding } from '@/lib/resources'
+import { denyAuditorMutation } from '@/lib/session'
 
 export const runtime = 'nodejs'
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = denyAuditorMutation(_request)
+  if (denied) return denied
   const { id } = await context.params
   try {
     const started = await markResourceProcessing(id)

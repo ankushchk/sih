@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server'
 import { getNeo4jDriver } from '@/lib/neo4j'
 import { approveResource, getStoredResource, publicResource, updateConnectionReview } from '@/lib/resources'
 import { appendIntegrityEvent } from '@/lib/integrity'
+import { denyAuditorMutation } from '@/lib/session'
 
 export const runtime = 'nodejs'
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = denyAuditorMutation(_request)
+  if (denied) return denied
   const { id } = await context.params
   const body = (await _request.json().catch(() => null)) as { connectionIds?: string[] } | null
   let resource = await getStoredResource(id)
@@ -23,7 +26,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       MATCH (a:Entity {id: row.source}), (b:Entity {id: row.target})
       MERGE (a)-[r:RELATES {id: row.id}]->(b)
       SET r.type = row.type, r.status = row.status, r.confidence = row.confidence,
-          r.sources = row.evidence, r.resourceId = $resourceId, r.caseId = $caseId`, {
+          r.sources = row.evidence, r.resourceId = $resourceId, r.caseId = $caseId, r.sensitivity = 'STANDARD'`, {
       connections: connectionsToWrite, resourceId: resource.id, caseId: resource.caseId,
     })
     const graphEvent = await appendIntegrityEvent({

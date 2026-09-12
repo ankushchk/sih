@@ -5,6 +5,7 @@ import { PDFParse } from 'pdf-parse'
 import { people, secondaryEntities, type Entity } from '@/src/data'
 import { appendIntegrityEvent, commitDocument, getCurrentMerkleRoot, hashValue } from '@/lib/integrity'
 import { anchorMerkleRoot } from '@/lib/integrityAnchor'
+import { validateRelationship } from '@/lib/ontology'
 
 export type CandidateConnection = {
   id: string
@@ -137,7 +138,9 @@ export function resolveEntities(text: string, resourceId: string): { extractions
       for (let next = index + 1; next < segmentEntities.length; next += 1) {
         const left = segmentEntities[index]
         const right = segmentEntities[next]
-        connections.push({ id: `${resourceId}-${left.entityId}-${right.entityId}-${connections.length + 1}`, source: left.entityId, target: right.entityId, sourceName: left.canonicalName, targetName: right.canonicalName, type: relationshipType(segment), status: 'observed', confidence: Math.min(left.confidence, right.confidence), evidence: [resourceId], evidenceExcerpt: segment.slice(0, 500), sourceSegment: segment.slice(0, 500), reviewStatus: 'pending' })
+        const type = relationshipType(segment)
+        if (!validateRelationship({ type, sourceType: left.type, targetType: right.type })) continue
+        connections.push({ id: `${resourceId}-${left.entityId}-${right.entityId}-${connections.length + 1}`, source: left.entityId, target: right.entityId, sourceName: left.canonicalName, targetName: right.canonicalName, type, status: 'observed', confidence: Math.min(left.confidence, right.confidence), evidence: [resourceId], evidenceExcerpt: segment.slice(0, 500), sourceSegment: segment.slice(0, 500), reviewStatus: 'pending' })
       }
     }
   }

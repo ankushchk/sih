@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server'
 import { getNeo4jDriver } from '@/lib/neo4j'
 import { appendIntegrityEvent } from '@/lib/integrity'
 import { publicResource, updateConnectionReview } from '@/lib/resources'
+import { denyAuditorMutation } from '@/lib/session'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: Request, context: { params: Promise<{ id: string; connectionId: string }> }) {
+  const denied = denyAuditorMutation(request)
+  if (denied) return denied
   const { id, connectionId } = await context.params
   const body = (await request.json().catch(() => null)) as { action?: 'approve' | 'reject' | 'update'; type?: string; confidence?: number } | null
   const action = body?.action
@@ -19,7 +22,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await session.run(`MATCH (a:Entity {id: $source}), (b:Entity {id: $target})
       MERGE (a)-[r:RELATES {id: $id}]->(b)
       SET r.type = $type, r.status = 'observed', r.confidence = $confidence,
-        r.sources = $evidence, r.resourceId = $resourceId, r.caseId = $caseId`, {
+        r.sources = $evidence, r.resourceId = $resourceId, r.caseId = $caseId, r.sensitivity = 'STANDARD'`, {
       id: result.connection.id, source: result.connection.source, target: result.connection.target,
       type: result.connection.type, confidence: result.connection.confidence,
       evidence: result.connection.evidence, resourceId: id, caseId: result.resource.caseId,

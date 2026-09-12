@@ -42,7 +42,7 @@ Every relationship carries evidence references and an explicit status: `observed
 
 ## Computation provenance
 
-The `/api/provenance` route creates a deterministic CASE-1004 computation trail. Each event commits its inputs and outputs with SHA-256 and includes the previous event hash. The Integrity view displays and verifies the resulting chain root. Neo4j persistence is optional for local development; the deterministic response remains available when Neo4j is offline.
+The `/api/provenance` route uses persisted resource commitments and processing events when live resources exist. Each event commits its inputs and outputs with SHA-256 and includes the previous event hash. The Integrity view displays and verifies the resulting chain root. A deterministic fallback remains available only when no live resource records exist.
 
 This is a tamper-evident computation trail, not yet a blockchain or zero-knowledge proof. It proves that the declared event sequence is internally consistent. Future ZK integration should prove the deterministic graph-analysis program over a committed graph snapshot, while OpenAI answer generation remains recorded with model, context, and citation metadata.
 
@@ -76,3 +76,7 @@ Workspace sections are local client-side view states in `components/App.tsx`.
 4. Network analytics, leads, patterns and timeline
 5. Security posture, RBAC, audit trail and integrity demonstration
 6. GraphRAG grounding, citations and end-to-end verification
+
+## Production considerations
+
+The prototype Graph RAG generation step in `lib/answerQuestion.ts` calls a public OpenAI API. A production deployment handling real FIR, CDR, or investigative records should route generation through a self-hosted or India-sovereign model hosted inside a government-controlled environment. Sensitive case content, retrieved excerpts, graph context, and citations should not leave that controlled boundary.
